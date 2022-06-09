@@ -26,6 +26,8 @@ const (
 
 	VolumeWorkloadIdentityName        = "workload-identity-credentials"
 	VolumeWorkloadIdentityDefaultMode = 420
+	VolumeMountWorkloadIdentityName   = "workload-identity"
+	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 
 	TokenExpirationSeconds                   = 7200
 	ServiceAccountTokenPath                  = "token"
@@ -134,8 +136,8 @@ func injectEnvVar(container *corev1.Container) {
 
 func injectVolumeMount(container *corev1.Container) {
 	credentialsMount := corev1.VolumeMount{
-		Name:      "workload-identity",
-		MountPath: "/var/run/secrets/workload-identity",
+		Name:      VolumeMountWorkloadIdentityName,
+		MountPath: VolumeMountWorkloadIdentityPath,
 		ReadOnly:  true,
 	}
 	container.VolumeMounts = append(container.VolumeMounts, credentialsMount)
