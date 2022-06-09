@@ -1,0 +1,6 @@
+domain: my.domain
+layout:
+- go.kubebuilder.io/v3
+projectName: workload-identity-operator-gcp
+repo: github.com/giantswarm/workload-identity-operator-gcp
+version: "3"
