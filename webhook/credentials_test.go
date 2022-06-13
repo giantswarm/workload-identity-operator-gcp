@@ -92,7 +92,7 @@ var _ = Describe("Credentials", func() {
 				Path:      "/spec/containers/0/env/2",
 				Value: map[string]interface{}{
 					"name":  webhook.EnvKeyGoogleApplicationCredentials,
-					"value": webhook.EnvValueGoogleApplicationCredentials,
+					"value": "/var/run/secrets/workload-identity/google-application-credentials.json",
 				},
 			},
 			jsonpatch.Operation{
@@ -100,7 +100,7 @@ var _ = Describe("Credentials", func() {
 				Path:      "/spec/containers/1/env/2",
 				Value: map[string]interface{}{
 					"name":  webhook.EnvKeyGoogleApplicationCredentials,
-					"value": webhook.EnvValueGoogleApplicationCredentials,
+					"value": "/var/run/secrets/workload-identity/google-application-credentials.json",
 				},
 			},
 		))

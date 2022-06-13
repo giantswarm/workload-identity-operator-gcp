@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	EnvKeyGoogleApplicationCredentials   = "GOOGLE_APPLICATION_CREDENTIALS"
-	EnvValueGoogleApplicationCredentials = "some-path"
+	EnvKeyGoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
 
 	AnnotationGCPServiceAccount      = "giantswarm.io/gcp-service-account"
 	AnnotationWorkloadIdentityPoolID = "giantswarm.io/gcp-workload-identity-pool-id"
@@ -127,9 +126,11 @@ func getPatchedResponse(req admission.Request, mutatedPod *corev1.Pod) admission
 }
 
 func injectEnvVar(container *corev1.Container) {
+	credentialsPath := fmt.Sprintf("%s/%s", VolumeMountWorkloadIdentityPath, GoogleApplicationCredentialsJSONPath)
+
 	credentialsEnvVar := corev1.EnvVar{
 		Name:  EnvKeyGoogleApplicationCredentials,
-		Value: EnvValueGoogleApplicationCredentials,
+		Value: credentialsPath,
 	}
 	container.Env = append(container.Env, credentialsEnvVar)
 }
