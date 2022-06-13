@@ -67,8 +67,9 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 
 	serviceAccount, err := w.getServiceAccount(ctx, pod)
 	if k8serrors.IsNotFound(err) {
-		logger.Error(err, "Pod ServiceAccount does not exist")
-		return admission.Errored(http.StatusBadRequest, err)
+		message := "Pod ServiceAccount does not exist"
+		logger.Error(err, message)
+		return admission.Denied(message)
 	}
 	if err != nil {
 		logger.Error(err, "failed to get Pod ServicAccount")

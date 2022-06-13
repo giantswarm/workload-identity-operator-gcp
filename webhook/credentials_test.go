@@ -199,7 +199,7 @@ var _ = Describe("Credentials", func() {
 			result := credentialsWebhook.Handle(ctx, request)
 			Expect(result.AdmissionResponse.Allowed).To(BeFalse())
 			Expect(result.Result).NotTo(BeNil())
-			Expect(result.Result.Code).To(Equal(int32(http.StatusBadRequest)))
+			Expect(result.Result.Code).To(Equal(int32(http.StatusForbidden)))
 		})
 	})
 
