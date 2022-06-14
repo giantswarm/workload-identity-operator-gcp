@@ -2,6 +2,14 @@ module github.com/giantswarm/workload-identity-operator-gcp
 
 go 1.17
 
+replace (
+	// Fixes sonatype-2021-1401 non-CVE vulnerability
+	github.com/miekg/dns v1.0.14 => github.com/miekg/dns v1.1.49
+
+	// Fixes sonatype-2019-0890 non-CVE vulnerability
+	github.com/pkg/sftp v1.10.1 => github.com/pkg/sftp v1.13.4
+)
+
 require (
 	github.com/giantswarm/to v0.4.0
 	github.com/go-logr/logr v1.2.3
