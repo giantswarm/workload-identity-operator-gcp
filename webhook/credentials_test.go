@@ -284,17 +284,3 @@ func encodeObject(obj interface{}) runtime.RawExtension {
 
 	return runtime.RawExtension{Raw: encodedObj}
 }
-
-func int32ptr(i int) *int32 {
-	u := int32(i)
-	return &u
-}
-
-func int64ptr(i int) *int64 {
-	u := int64(i)
-	return &u
-}
-
-func boolptr(b bool) *bool {
-	return &b
-}

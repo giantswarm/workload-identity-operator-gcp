@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/giantswarm/to"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -156,7 +157,7 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, configMapName string) {
 		Name: VolumeWorkloadIdentityName,
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
-				DefaultMode: int32ptr(VolumeWorkloadIdentityDefaultMode),
+				DefaultMode: to.Int32P(VolumeWorkloadIdentityDefaultMode),
 				Sources: []corev1.VolumeProjection{
 					{
 						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
@@ -167,7 +168,7 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, configMapName string) {
 							// rotated automatically by the kubelet when it's close to
 							// expiring.
 							// See https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection
-							ExpirationSeconds: int64ptr(TokenExpirationSeconds),
+							ExpirationSeconds: to.Int64P(TokenExpirationSeconds),
 						},
 					},
 					{
@@ -175,7 +176,7 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, configMapName string) {
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: configMapName,
 							},
-							Optional: boolptr(false),
+							Optional: to.BoolP(false),
 							Items: []corev1.KeyToPath{
 								{
 									Key:  ConfigMapKeyGoogleApplicationCredentials,
@@ -188,18 +189,4 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, configMapName string) {
 			},
 		},
 	})
-}
-
-func int32ptr(i int) *int32 {
-	u := int32(i)
-	return &u
-}
-
-func int64ptr(i int) *int64 {
-	u := int64(i)
-	return &u
-}
-
-func boolptr(b bool) *bool {
-	return &b
 }
