@@ -23,3 +23,6 @@ testbin/*
 *.swp
 *.swo
 *~
+
+# rendered helm chart
+helm/rendered/*
