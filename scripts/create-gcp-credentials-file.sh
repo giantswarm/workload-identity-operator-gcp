@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -euo pipefail
+
+readonly TEMP_CREDENTIALS_FILE="$(mktemp)"
+readonly B64_GOOGLE_APPLICATION_CREDENTIALS="${B64_GOOGLE_APPLICATION_CREDENTIALS:?Base64 encoded GCP credentials not exported}"
+
+echo $B64_GOOGLE_APPLICATION_CREDENTIALS | base64 -d >"$TEMP_CREDENTIALS_FILE"
+
+echo $TEMP_CREDENTIALS_FILE

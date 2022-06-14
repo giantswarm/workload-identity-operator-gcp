@@ -1,0 +1,28 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "resource.default.name"  . }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{  include "resource.default.namespace" . }}/{{ include "resource.default.name" . }}
+webhooks:
+- name: workload-identity-credentials-injector.giantswarm.io
+  objectSelector:
+    matchExpressions:
+    - key: "giantswarm.io/gcp-workload-identity"
+      operator: Exists
+  rules:
+  - apiGroups: [""]
+    apiVersions: ["v1"]
+    operations: ["CREATE"]
+    resources: ["pods"]
+    scope: "Namespaced"
+  clientConfig:
+    service:
+      namespace: {{  include "resource.default.namespace"  .  }}
+      name: {{ include "resource.default.name"  . }}
+    caBundle: Cg==
+  admissionReviewVersions: ["v1beta1"]
+  sideEffects: None
+  timeoutSeconds: 10
+
