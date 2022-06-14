@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+readonly REPO_ROOT="$SCRIPT_DIR/.."
+readonly ENVTEST_ASSETS_DIR="${REPO_ROOT}/testbin"
+
+extra_args=()
+if ! egrep -q "tests" <(echo "$@"); then
+  go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+  setup-envtest use --bin-dir "${ENVTEST_ASSETS_DIR}"
+
+  # Export the KUBEBUILDER_ASSETS env var
+  eval "$(setup-envtest use --installed-only --print env)"
+  extra_args+=("--skipPackage=tests")
+fi
+
+ginkgo -p --nodes 8 -r -randomizeAllSpecs --randomizeSuites "${extra_args[@]}" $@
