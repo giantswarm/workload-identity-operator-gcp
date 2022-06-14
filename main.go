@@ -68,10 +68,12 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
+		Host:                   "0.0.0.0",
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "78344dd8.my.domain",
+		LeaderElectionID:       "workload-identity-operator-gcp.giantswarm.io",
+		CertDir:                "/etc/webhook/certs",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

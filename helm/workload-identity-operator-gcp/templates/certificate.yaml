@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "resource.default.name"  . }}
+  namespace: {{ include "resource.default.namespace"  . }}
+  labels:
+    {{- include "labels.common" . | nindent 4 }}
+spec:
+  commonName: "{{ include "resource.default.name"  . }}.{{ include "resource.default.namespace"  . }}.svc"
+  dnsNames:
+  - "{{ include "resource.default.name" . }}"
+  - "{{ include "resource.default.name" . }}.{{ include "resource.default.namespace" . }}"
+  - "{{ include "resource.default.name" . }}.{{ include "resource.default.namespace" . }}.svc"
+  - "{{ include "resource.default.name" . }}.{{ include "resource.default.namespace" . }}.svc.local"
+  - "{{ include "resource.default.name" . }}.{{ include "resource.default.namespace" . }}.svc.cluster.local"
+  issuerRef:
+    kind: ClusterIssuer
+    name: selfsigned-giantswarm
+  secretName: {{ include "resource.default.name" . }}
+---
+
