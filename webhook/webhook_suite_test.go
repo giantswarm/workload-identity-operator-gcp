@@ -18,8 +18,6 @@ package webhook_test
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -51,7 +51,7 @@ var (
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	GetEnvOrSkip("KUBEBUILDER_ASSETS")
+	tests.GetEnvOrSkip("KUBEBUILDER_ASSETS")
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -90,18 +90,3 @@ var _ = AfterEach(func() {
 	namespaceObj.Name = namespace
 	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
-
-func GenerateGUID(prefix string) string {
-	guid := uuid.NewString()
-
-	return fmt.Sprintf("%s-%s", prefix, guid[:13])
-}
-
-func GetEnvOrSkip(env string) string {
-	value := os.Getenv(env)
-	if value == "" {
-		Skip(fmt.Sprintf("%s not exported", env))
-	}
-
-	return value
-}

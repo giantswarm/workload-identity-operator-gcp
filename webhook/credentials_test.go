@@ -26,6 +26,7 @@ var _ = Describe("Credentials", func() {
 		pod            corev1.Pod
 		serviceAccount *corev1.ServiceAccount
 		request        admission.Request
+		response       admission.Response
 	)
 
 	BeforeEach(func() {
@@ -78,15 +79,19 @@ var _ = Describe("Credentials", func() {
 
 		request = admission.Request{
 			AdmissionRequest: admissionv1.AdmissionRequest{
-				Object: encodeObject(pod),
+				Object:    encodeObject(pod),
+				Operation: admissionv1.Create,
 			},
 		}
 	})
 
+	JustBeforeEach(func() {
+		response = credentialsWebhook.Handle(ctx, request)
+	})
+
 	It("injects the env var in all containers of the pod", func() {
-		result := credentialsWebhook.Handle(ctx, request)
-		Expect(result.AdmissionResponse.Allowed).To(BeTrue())
-		Expect(result.Patches).To(ContainElements(
+		Expect(response.AdmissionResponse.Allowed).To(BeTrue())
+		Expect(response.Patches).To(ContainElements(
 			jsonpatch.Operation{
 				Operation: "add",
 				Path:      "/spec/containers/0/env/2",
@@ -107,15 +112,14 @@ var _ = Describe("Credentials", func() {
 	})
 
 	It("injects the volume mount in all containers of the pod", func() {
-		result := credentialsWebhook.Handle(ctx, request)
-		Expect(result.AdmissionResponse.Allowed).To(BeTrue())
-		Expect(result.Patches).To(ContainElements(
+		Expect(response.AdmissionResponse.Allowed).To(BeTrue())
+		Expect(response.Patches).To(ContainElements(
 			jsonpatch.Operation{
 				Operation: "add",
 				Path:      "/spec/containers/0/volumeMounts",
 				Value: []interface{}{
 					map[string]interface{}{
-						"name":      "workload-identity",
+						"name":      "workload-identity-credentials",
 						"mountPath": "/var/run/secrets/workload-identity",
 						"readOnly":  true,
 					},
@@ -126,7 +130,7 @@ var _ = Describe("Credentials", func() {
 				Path:      "/spec/containers/1/volumeMounts",
 				Value: []interface{}{
 					map[string]interface{}{
-						"name":      "workload-identity",
+						"name":      "workload-identity-credentials",
 						"mountPath": "/var/run/secrets/workload-identity",
 						"readOnly":  true,
 					},
@@ -136,9 +140,8 @@ var _ = Describe("Credentials", func() {
 	})
 
 	It("injects the secret volume", func() {
-		result := credentialsWebhook.Handle(ctx, request)
-		Expect(result.AdmissionResponse.Allowed).To(BeTrue())
-		Expect(result.Patches).To(ContainElements(
+		Expect(response.Allowed).To(BeTrue())
+		Expect(response.Patches).To(ContainElements(
 			jsonpatch.Operation{
 				Operation: "add",
 				Path:      "/spec/volumes",
@@ -175,6 +178,41 @@ var _ = Describe("Credentials", func() {
 		))
 	})
 
+	Context("the passed pod has already been created", func() {
+		When("operation is Update", func() {
+			BeforeEach(func() {
+				request.Operation = admissionv1.Update
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+				Expect(response.Patches).To(BeEmpty())
+			})
+		})
+
+		When("operation is Delete", func() {
+			BeforeEach(func() {
+				request.Operation = admissionv1.Delete
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+				Expect(response.Patches).To(BeEmpty())
+			})
+		})
+
+		When("operation is Connect", func() {
+			BeforeEach(func() {
+				request.Operation = admissionv1.Connect
+			})
+
+			It("allows the request", func() {
+				Expect(response.Allowed).To(BeTrue())
+				Expect(response.Patches).To(BeEmpty())
+			})
+		})
+	})
+
 	When("the pod doesn't have a service account", func() {
 		BeforeEach(func() {
 			pod.Spec.ServiceAccountName = ""
@@ -182,10 +220,9 @@ var _ = Describe("Credentials", func() {
 		})
 
 		It("denies the request", func() {
-			result := credentialsWebhook.Handle(ctx, request)
-			Expect(result.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(result.Result).NotTo(BeNil())
-			Expect(result.Result.Code).To(Equal(int32(http.StatusForbidden)))
+			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+			Expect(response.Result).NotTo(BeNil())
+			Expect(response.Result.Code).To(Equal(int32(http.StatusForbidden)))
 		})
 	})
 
@@ -196,10 +233,9 @@ var _ = Describe("Credentials", func() {
 		})
 
 		It("returns a 400 Bad Request", func() {
-			result := credentialsWebhook.Handle(ctx, request)
-			Expect(result.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(result.Result).NotTo(BeNil())
-			Expect(result.Result.Code).To(Equal(int32(http.StatusForbidden)))
+			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+			Expect(response.Result).NotTo(BeNil())
+			Expect(response.Result.Code).To(Equal(int32(http.StatusForbidden)))
 		})
 	})
 
@@ -211,10 +247,9 @@ var _ = Describe("Credentials", func() {
 		})
 
 		It("denies the request", func() {
-			result := credentialsWebhook.Handle(ctx, request)
-			Expect(result.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(result.Result).NotTo(BeNil())
-			Expect(result.Result.Code).To(Equal(int32(http.StatusForbidden)))
+			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+			Expect(response.Result).NotTo(BeNil())
+			Expect(response.Result.Code).To(Equal(int32(http.StatusForbidden)))
 		})
 	})
 
@@ -223,10 +258,10 @@ var _ = Describe("Credentials", func() {
 			canceledCtx, cancel := context.WithCancel(ctx)
 			cancel()
 
-			result := credentialsWebhook.Handle(canceledCtx, request)
-			Expect(result.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(result.Result).NotTo(BeNil())
-			Expect(result.Result.Code).To(Equal(int32(http.StatusInternalServerError)))
+			canceledResult := credentialsWebhook.Handle(canceledCtx, request)
+			Expect(canceledResult.AdmissionResponse.Allowed).To(BeFalse())
+			Expect(canceledResult.Result).NotTo(BeNil())
+			Expect(canceledResult.Result.Code).To(Equal(int32(http.StatusInternalServerError)))
 		})
 	})
 
@@ -236,10 +271,9 @@ var _ = Describe("Credentials", func() {
 		})
 
 		It("returns a 400 Bad Request", func() {
-			result := credentialsWebhook.Handle(ctx, request)
-			Expect(result.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(result.Result).NotTo(BeNil())
-			Expect(result.Result.Code).To(Equal(int32(http.StatusBadRequest)))
+			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
+			Expect(response.Result).NotTo(BeNil())
+			Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)))
 		})
 	})
 })

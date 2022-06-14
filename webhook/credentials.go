@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-logr/logr"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,7 +26,6 @@ const (
 
 	VolumeWorkloadIdentityName        = "workload-identity-credentials"
 	VolumeWorkloadIdentityDefaultMode = 420
-	VolumeMountWorkloadIdentityName   = "workload-identity"
 	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 
 	TokenExpirationSeconds                   = 7200
@@ -51,6 +51,12 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 
 	logger.Info("Handling admission request")
 	defer logger.Info("Done")
+
+	if req.Operation != admissionv1.Create {
+		message := "pod already created"
+		logger.Info(message)
+		return admission.Allowed(message)
+	}
 
 	pod := &corev1.Pod{}
 	err := w.decoder.Decode(req, pod)
@@ -138,7 +144,7 @@ func injectEnvVar(container *corev1.Container) {
 
 func injectVolumeMount(container *corev1.Container) {
 	credentialsMount := corev1.VolumeMount{
-		Name:      VolumeMountWorkloadIdentityName,
+		Name:      VolumeWorkloadIdentityName,
 		MountPath: VolumeMountWorkloadIdentityPath,
 		ReadOnly:  true,
 	}
