@@ -25,6 +25,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/giantswarm/workload-identity-operator-gcp/serviceaccount"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,6 +81,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&serviceaccount.ServiceAccountReconciler{
+		Client: mgr.GetClient(),
+		Logger: ctrl.Log.WithName("service-account-reconciler"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceAccount")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	decoder, err := admission.NewDecoder(scheme)

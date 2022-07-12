@@ -3,4 +3,10 @@ layout:
 - go.kubebuilder.io/v3
 projectName: workload-identity-operator-gcp
 repo: github.com/giantswarm/workload-identity-operator-gcp
+resources:
+- controller: true
+  group: core
+  kind: ServiceAccount
+  path: k8s.io/api/core/v1
+  version: v1
 version: "3"
