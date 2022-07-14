@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/giantswarm/to"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,7 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const AnnotationGCPIdentityProvider = "giantswarm.io/gcp-identity-provider"
+const (
+	AnnotationGCPIdentityProvider = "giantswarm.io/gcp-identity-provider"
+	AnnotationSecretMetadata      = "kubernetes.io/service-account.name"
+)
 
 type ServiceAccountReconciler struct {
 	client.Client
@@ -43,37 +48,53 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	identityProvider, hasIdentityProvider := serviceAccount.Annotations[AnnotationGCPIdentityProvider]
 
 	if !isGCPAnnotated {
-		r.Logger.Error(errors.New("Service account does not have gcp annotation"), "service-account", req.NamespacedName)
+		r.Logger.Error(errors.New("Service account does not have gcp annotation"), "Service account does not have gcp annotation", "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasWorkloadIdentity {
-		r.Logger.Error(errors.New("Service account does not have workload identity annotation"), "service-account", req.NamespacedName)
+		r.Logger.Error(errors.New("Service account does not have workload identity annotation"), "Service account does not have gcp annotation", "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasIdentityProvider {
-		r.Logger.Error(errors.New("Service account does not have identity provider annotation"), "service-account", req.NamespacedName)
+		r.Logger.Error(errors.New("Service account does not have identity provider annotation"), "Service account does not have gcp annotation", "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	secretName := fmt.Sprintf("%s-google-application-json", serviceAccount.Name)
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: req.Namespace,
+		},
+	}
 
 	err = r.Client.Get(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: req.Namespace,
 	}, &corev1.Secret{})
 
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.Logger.Error(err, "secret already exists", "service-account", req.NamespacedName)
+		return reconcile.Result{}, err
+	}
+
+	// Secret already exists, no need to create it again
+	if !secret.CreationTimestamp.IsZero() {
+		return reconcile.Result{}, err
+	}
+
 	data := fmt.Sprintf(`{
-      "type": "external_account",
-      "audience": "identitynamespace:%[1]s:%[2]s",
-      "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%[3]s:generateAccessToken",
-      "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-      "token_url": "https://sts.googleapis.com/v1/token",
-      "credential_source": {
-        "file": "/var/run/secrets/tokens/gcp-ksa/token"
-      }
-    }`, workloadIdentityPool, identityProvider, gcpServiceAccount)
+	     "type": "external_account",
+	     "audience": "identitynamespace:%[1]s:%[2]s",
+	     "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%[3]s:generateAccessToken",
+	     "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+	     "token_url": "https://sts.googleapis.com/v1/token",
+	     "credential_source": {
+	       "file": "/var/run/secrets/tokens/gcp-ksa/token"
+	     }
+	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount)
 
 	err = r.createSecret(ctx, serviceAccount, secretName, data)
 
@@ -85,11 +106,15 @@ func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAcco
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: serviceAccount.Namespace,
+			Annotations: map[string]string{
+				AnnotationSecretMetadata: serviceAccount.Name,
+			},
 		},
 		StringData: map[string]string{
 			"config": data,
 		},
-		Type: corev1.SecretTypeServiceAccountToken,
+		Immutable: to.BoolP(true),
+		Type:      corev1.SecretTypeServiceAccountToken,
 	}
 
 	err := controllerutil.SetOwnerReference(serviceAccount, secret, r.Scheme)
