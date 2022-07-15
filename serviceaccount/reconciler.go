@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/giantswarm/to"
-	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
 const (
