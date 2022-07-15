@@ -21,8 +21,7 @@ import (
 )
 
 const (
-	AnnotationGCPIdentityProvider = "giantswarm.io/gcp-identity-provider"
-	AnnotationSecretMetadata      = "kubernetes.io/service-account.name"
+	AnnotationSecretMetadata      = "kubernetes.io/service-account.name" //#nosec G101
 )
 
 type ServiceAccountReconciler struct {
@@ -46,24 +45,30 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	gcpServiceAccount, isGCPAnnotated := serviceAccount.Annotations[webhook.AnnotationGCPServiceAccount]
 	workloadIdentityPool, hasWorkloadIdentity := serviceAccount.Annotations[webhook.AnnotationWorkloadIdentityPoolID]
-	identityProvider, hasIdentityProvider := serviceAccount.Annotations[AnnotationGCPIdentityProvider]
+	identityProvider, hasIdentityProvider := serviceAccount.Annotations[webhook.AnnotationGCPIdentityProvider]
 
 	if !isGCPAnnotated {
-		r.Logger.Error(errors.New("Service account does not have gcp annotation"), "Service account does not have gcp annotation", "service-account", req.NamespacedName)
+		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationGCPServiceAccount)
+    err = errors.New(message)
+		r.Logger.Error(err, message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasWorkloadIdentity {
-		r.Logger.Error(errors.New("Service account does not have workload identity annotation"), "Service account does not have gcp annotation", "service-account", req.NamespacedName)
+		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
+    err = errors.New(message)
+		r.Logger.Error(err, message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasIdentityProvider {
-		r.Logger.Error(errors.New("Service account does not have identity provider annotation"), "Service account does not have gcp annotation", "service-account", req.NamespacedName)
+		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationGCPIdentityProvider)
+    err = errors.New(message)
+		r.Logger.Error(err, message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
-	secretName := fmt.Sprintf("%s-google-application-json", serviceAccount.Name)
+	secretName := fmt.Sprintf("%s-google-application-credentials", serviceAccount.Name)
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -112,7 +117,7 @@ func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAcco
 			},
 		},
 		StringData: map[string]string{
-			"config": data,
+			webhook.SecretKeyGoogleApplicationCredentials: data,
 		},
 		Immutable: to.BoolP(true),
 		Type:      corev1.SecretTypeServiceAccountToken,
@@ -120,7 +125,7 @@ func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAcco
 
 	err := controllerutil.SetOwnerReference(serviceAccount, secret, r.Scheme)
 	if err != nil {
-		r.Logger.Error(err, "failed to set ownwer reference on secret")
+		r.Logger.Error(err, "failed to set owner reference on secret")
 		return err
 	}
 

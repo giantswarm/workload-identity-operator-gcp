@@ -164,7 +164,7 @@ var _ = Describe("Credentials", func() {
 										"optional": false,
 										"items": []interface{}{
 											map[string]interface{}{
-												"key":  webhook.ConfigMapKeyGoogleApplicationCredentials,
+												"key":  webhook.SecretKeyGoogleApplicationCredentials,
 												"path": webhook.GoogleApplicationCredentialsJSONPath,
 											},
 										},
