@@ -2,6 +2,7 @@ package serviceaccount_test
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -52,7 +53,7 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-  metricsPort := getRandomPort()
+  metricsPort := fmt.Sprintf(":%s", getRandomPort())
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:            metricsPort,
 	})
