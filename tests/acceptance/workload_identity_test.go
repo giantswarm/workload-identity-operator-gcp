@@ -82,7 +82,7 @@ var _ = Describe("Workload Identity", func() {
 			return workload.Status.ContainerStatuses[0].Ready
 		}
 
-		Eventually(getPodStatus, "30s").Should(BeTrue(), "pod container failed to become ready")
+		Eventually(getPodStatus, "60s").Should(BeTrue(), "pod container failed to become ready")
 		Consistently(getPodStatus, "5s").Should(BeTrue(), "pod container errored")
 	})
 })

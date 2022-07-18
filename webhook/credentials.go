@@ -80,7 +80,7 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		return admission.Denied(message)
 	}
 	if err != nil {
-		logger.Error(err, "failed to get Pod ServicAccount")
+		logger.Error(err, "failed to get Pod Service Account")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
