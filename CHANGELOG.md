@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Don't push to gcp collection.
+- Push app to default catalog instead of control plane.
+
 ## [0.1.0] - 2022-06-14
 
 [Unreleased]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.1.0...HEAD
