@@ -35,6 +35,9 @@ var (
 	k8sClient client.Client
 	testEnv   *envtest.Environment
 	namespace string
+
+	ctx    context.Context
+	cancel context.CancelFunc
 )
 
 var _ = BeforeSuite(func() {
@@ -53,9 +56,9 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-  metricsPort := fmt.Sprintf(":%s", getRandomPort())
+	metricsPort := fmt.Sprintf(":%s", getRandomPort())
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress:            metricsPort,
+		MetricsBindAddress: metricsPort,
 	})
 	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
 
@@ -68,9 +71,15 @@ var _ = BeforeSuite(func() {
 	err = serviceAccountReconciler.SetupWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
+	ctx, cancel = context.WithCancel(context.TODO())
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	go func() {
+		err := mgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred(), "failed to start manager")
+	}()
 })
 
 var _ = AfterSuite(func() {
@@ -78,6 +87,7 @@ var _ = AfterSuite(func() {
 	if testEnv == nil {
 		return
 	}
+	cancel()
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
@@ -100,7 +110,7 @@ func getRandomPort() string {
 	min := 30000
 	max := 33000
 	port := rand.Intn(max-min) + min
-  portString := strconv.Itoa(port)
+	portString := strconv.Itoa(port)
 
-  return portString
+	return portString
 }

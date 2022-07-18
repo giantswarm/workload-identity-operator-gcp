@@ -3,6 +3,7 @@ package serviceaccount_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,6 +29,9 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		secret     *corev1.Secret
 		secretName = fmt.Sprintf("%s-%s", serviceAccountName, serviceaccount.SecretNameSuffix)
+
+		timeout  = time.Second * 20
+		interval = time.Millisecond * 250
 	)
 
 	When("a correctly annotated service account is created", func() {
@@ -50,12 +54,17 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		JustBeforeEach(func() {
 			secret = &corev1.Secret{}
-			err := k8sClient.Get(ctx, client.ObjectKey{
-				Namespace: namespace,
-				Name:      secretName,
-			}, secret)
 
-			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() error {
+				err := k8sClient.Get(ctx, client.ObjectKey{
+					Namespace: namespace,
+					Name:      secretName,
+				}, secret)
+
+				return err
+
+			}, timeout, interval).Should(BeNil())
+
 		})
 
 		It("should create a secret with the correct credentials", func() {
