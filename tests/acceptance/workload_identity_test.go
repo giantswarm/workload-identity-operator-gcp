@@ -27,21 +27,11 @@ var _ = Describe("Workload Identity", func() {
 				Annotations: map[string]string{
 					webhook.AnnotationGCPServiceAccount:      "service-account@email",
 					webhook.AnnotationWorkloadIdentityPoolID: "workload-identity-pool-id",
+					webhook.AnnotationGCPIdentityProvider:    "gcp-identity-provider",
 				},
 			},
 		}
 		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
-
-		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "the-service-account-google-application-credentials",
-				Namespace: namespace,
-			},
-			Data: map[string]string{
-				"config": "the-content",
-			},
-		}
-		Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
 
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{

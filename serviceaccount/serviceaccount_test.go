@@ -49,7 +49,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		})
 
 		JustBeforeEach(func() {
-			secret = nil
+			secret = &corev1.Secret{}
 			err := k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
@@ -98,7 +98,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		})
 
 		It("should not create a secret", func() {
-			secret = nil
+			secret = &corev1.Secret{}
 			err := k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
@@ -127,7 +127,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		})
 
 		It("should not create a secret", func() {
-			secret = nil
+			secret = &corev1.Secret{}
 			err := k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
@@ -156,7 +156,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		})
 
 		It("should not create a secret", func() {
-			secret = nil
+			secret = &corev1.Secret{}
 			err := k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
