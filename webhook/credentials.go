@@ -30,9 +30,9 @@ const (
 	VolumeWorkloadIdentityDefaultMode = 420
 	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 
-	TokenExpirationSeconds                   = 7200
-	ServiceAccountTokenPath                  = "token"
-	GoogleApplicationCredentialsJSONPath     = "google-application-credentials.json"
+	TokenExpirationSeconds                = 7200
+	ServiceAccountTokenPath               = "token"
+	GoogleApplicationCredentialsJSONPath  = "google-application-credentials.json"
 	SecretKeyGoogleApplicationCredentials = "config"
 )
 

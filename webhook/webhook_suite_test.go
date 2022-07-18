@@ -25,11 +25,13 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/giantswarm/workload-identity-operator-gcp/serviceaccount"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
@@ -63,10 +65,21 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	//+kubebuilder:scaffold:scheme
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{})
+	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	serviceAccountReconciler := &serviceaccount.ServiceAccountReconciler{
+		Client: mgr.GetClient(),
+		Logger: ctrl.Log.WithName("service-account-reconciler"),
+		Scheme: mgr.GetScheme(),
+	}
+
+	err = serviceAccountReconciler.SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

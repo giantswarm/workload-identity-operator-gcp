@@ -21,7 +21,9 @@ import (
 )
 
 const (
-	AnnotationSecretMetadata      = "kubernetes.io/service-account.name" //#nosec G101
+	AnnotationSecretMetadata = "kubernetes.io/service-account.name" //#nosec G101
+
+	SecretNameSuffix = "google-application-credentials" //#nosec G101
 )
 
 type ServiceAccountReconciler struct {
@@ -49,26 +51,26 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if !isGCPAnnotated {
 		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationGCPServiceAccount)
-    err = errors.New(message)
+		err = errors.New(message)
 		r.Logger.Error(err, message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasWorkloadIdentity {
 		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
-    err = errors.New(message)
+		err = errors.New(message)
 		r.Logger.Error(err, message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasIdentityProvider {
 		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationGCPIdentityProvider)
-    err = errors.New(message)
+		err = errors.New(message)
 		r.Logger.Error(err, message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
-	secretName := fmt.Sprintf("%s-google-application-credentials", serviceAccount.Name)
+	secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, SecretNameSuffix)
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
