@@ -30,8 +30,17 @@ var _ = Describe("Service Account Reconcilation", func() {
 		secret     *corev1.Secret
 		secretName = fmt.Sprintf("%s-%s", serviceAccountName, serviceaccount.SecretNameSuffix)
 
-		timeout  = time.Second * 20
+		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
+
+		secretsIsNotFound func(secret *corev1.Secret) bool = func(secret *corev1.Secret) bool {
+			err := k8sClient.Get(ctx, client.ObjectKey{
+				Namespace: namespace,
+				Name:      secretName,
+			}, secret)
+
+			return err != nil && k8serrors.IsNotFound(err)
+		}
 	)
 
 	When("a correctly annotated service account is created", func() {
@@ -108,13 +117,8 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		It("should not create a secret", func() {
 			secret = &corev1.Secret{}
-			err := k8sClient.Get(ctx, client.ObjectKey{
-				Namespace: namespace,
-				Name:      secretName,
-			}, secret)
 
-			Expect(err).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			Consistently(secretsIsNotFound(secret), timeout, interval).Should(BeTrue(), "secret is not found")
 		})
 	})
 
@@ -137,13 +141,8 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		It("should not create a secret", func() {
 			secret = &corev1.Secret{}
-			err := k8sClient.Get(ctx, client.ObjectKey{
-				Namespace: namespace,
-				Name:      secretName,
-			}, secret)
 
-			Expect(err).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			Consistently(secretsIsNotFound(secret), timeout, interval).Should(BeTrue(), "secret is not found")
 		})
 	})
 
@@ -166,13 +165,8 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		It("should not create a secret", func() {
 			secret = &corev1.Secret{}
-			err := k8sClient.Get(ctx, client.ObjectKey{
-				Namespace: namespace,
-				Name:      secretName,
-			}, secret)
 
-			Expect(err).To(HaveOccurred())
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			Consistently(secretsIsNotFound(secret), timeout, interval).Should(BeTrue(), "secret is not found")
 		})
 	})
 })
