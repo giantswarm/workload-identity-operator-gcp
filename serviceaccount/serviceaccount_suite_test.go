@@ -2,18 +2,23 @@ package serviceaccount_test
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/giantswarm/workload-identity-operator-gcp/serviceaccount"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
@@ -47,6 +52,21 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
+  metricsPort := getRandomPort()
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		MetricsBindAddress:            metricsPort,
+	})
+	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
+
+	serviceAccountReconciler := &serviceaccount.ServiceAccountReconciler{
+		Client: mgr.GetClient(),
+		Logger: ctrl.Log.WithName("service-account-reconciler"),
+		Scheme: mgr.GetScheme(),
+	}
+
+	err = serviceAccountReconciler.SetupWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
@@ -73,3 +93,13 @@ var _ = AfterEach(func() {
 	namespaceObj.Name = namespace
 	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
+
+func getRandomPort() string {
+	rand.Seed(time.Now().UnixNano())
+	min := 30000
+	max := 33000
+	port := rand.Intn(max-min) + min
+  portString := strconv.Itoa(port)
+
+  return portString
+}
