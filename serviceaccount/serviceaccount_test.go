@@ -72,7 +72,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 			Expect(secret.Name).To(Equal(secretName))
 			Expect(secret.Namespace).To(Equal(namespace))
 
-			data := secret.StringData["config"]
+			data := string(secret.Data["config"])
 
 			expectedData := fmt.Sprintf(`{
 	     "type": "external_account",
