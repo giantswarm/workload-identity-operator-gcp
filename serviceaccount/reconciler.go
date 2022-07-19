@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	AnnotationSecretMetadata = "kubernetes.io/service-account.name" //#nosec G101
-	AnnotationSecretManagedBy = "app.kubernetes.io/managed-by" //#nosec  G101
+	AnnotationSecretMetadata  = "kubernetes.io/service-account.name" //#nosec G101
+	AnnotationSecretManagedBy = "app.kubernetes.io/managed-by"       //#nosec  G101
 
 	SecretManagedBy = "workload-identity-operator-gcp" //#nosec G101
 
@@ -109,7 +109,7 @@ func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAcco
 			Name:      name,
 			Namespace: serviceAccount.Namespace,
 			Annotations: map[string]string{
-				AnnotationSecretMetadata: serviceAccount.Name,
+				AnnotationSecretMetadata:  serviceAccount.Name,
 				AnnotationSecretManagedBy: SecretManagedBy,
 			},
 		},
