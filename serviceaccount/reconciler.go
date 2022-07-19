@@ -2,7 +2,6 @@ package serviceaccount
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/giantswarm/to"
@@ -22,6 +21,9 @@ import (
 
 const (
 	AnnotationSecretMetadata = "kubernetes.io/service-account.name" //#nosec G101
+	AnnotationSecretManagedBy = "app.kubernetes.io/managed-by" //#nosec  G101
+
+	SecretManagedBy = "workload-identity-operator-gcp" //#nosec G101
 
 	SecretNameSuffix = "google-application-credentials" //#nosec G101
 )
@@ -50,23 +52,20 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	identityProvider, hasIdentityProvider := serviceAccount.Annotations[webhook.AnnotationGCPIdentityProvider]
 
 	if !isGCPAnnotated {
-		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationGCPServiceAccount)
-		err = errors.New(message)
-		r.Logger.Error(err, message, "service-account", req.NamespacedName)
+		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPServiceAccount)
+		r.Logger.Info(message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasWorkloadIdentity {
-		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
-		err = errors.New(message)
-		r.Logger.Error(err, message, "service-account", req.NamespacedName)
+		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
+		r.Logger.Info(message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
 	if !hasIdentityProvider {
-		message := fmt.Sprintf("ServiceAccount misssing %q annotation", webhook.AnnotationGCPIdentityProvider)
-		err = errors.New(message)
-		r.Logger.Error(err, message, "service-account", req.NamespacedName)
+		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPIdentityProvider)
+		r.Logger.Info(message, "service-account", req.NamespacedName)
 		return reconcile.Result{}, err
 	}
 
@@ -111,6 +110,7 @@ func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAcco
 			Namespace: serviceAccount.Namespace,
 			Annotations: map[string]string{
 				AnnotationSecretMetadata: serviceAccount.Name,
+				AnnotationSecretManagedBy: SecretManagedBy,
 			},
 		},
 		StringData: map[string]string{
