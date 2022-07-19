@@ -2,11 +2,11 @@ package serviceaccount_test
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +56,11 @@ var _ = BeforeSuite(func() {
 
 	//+kubebuilder:scaffold:scheme
 
-	metricsPort := fmt.Sprintf(":%s", getRandomPort())
+	randomNumber, err := getRandomPort()
+	Expect(err).NotTo(HaveOccurred(), "failed to generate random port number")
+
+	metricsPort := fmt.Sprintf(":%s", randomNumber)
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress: metricsPort,
 	})
@@ -105,12 +109,17 @@ var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
 
-func getRandomPort() string {
-	rand.Seed(time.Now().UnixNano())
-	min := 30000
-	max := 33000
-	port := rand.Intn(max-min) + min
-	portString := strconv.Itoa(port)
+func getRandomPort() (string, error) {
+	var min int64 = 30000
+	var max int64 = 33000
 
-	return portString
+	randomNumber, err := rand.Int(rand.Reader, big.NewInt(max-min))
+
+	if err != nil {
+		return "", err
+	}
+	port := randomNumber.Int64() + min
+	portString := strconv.FormatInt(port, 10)
+
+	return portString, nil
 }
