@@ -71,17 +71,12 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, SecretNameSuffix)
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: req.Namespace,
-		},
-	}
+	secret := &corev1.Secret{}
 
 	err = r.Client.Get(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: req.Namespace,
-	}, &corev1.Secret{})
+	}, secret)
 
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.Logger.Error(err, "secret already exists", "service-account", req.NamespacedName)
