@@ -37,7 +37,7 @@ export KUBECONFIG_CONTEXT="<insert-context-here>"
 export KUBECONFIG_PATH="~/.kube/config"
 ```
 ```
-gcloud container hub memberships register "$MEMBERSHIP_NAME" \                                                          at ⎈ gs-gohan-k1ng-clientcert
+gcloud container hub memberships register "$MEMBERSHIP_NAME" \
     --project "$GCP_PROJECT_NAME" \
     --context="$KUBECONFIG_CONTEXT" \
     --kubeconfig="$KUBECONFIG_PATH" \
