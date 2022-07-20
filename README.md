@@ -30,7 +30,7 @@ The workload identity pool has the following format:
 
 #### 2. Register your cluster
 ```
-export CLUSTER_NAME="<insert-cluster-name-here>"                                                                                      at ⎈ gs-gohan-k1ng-clientcert
+export CLUSTER_NAME="<insert-cluster-name-here>" 
 export MEMBERSHIP_NAME="$CLUSTER_NAME-workload-identity"
 export GCP_PROJECT_NAME="<insert-project-name-here>"
 export KUBECONFIG_CONTEXT="<insert-context-here>"
