@@ -43,6 +43,11 @@ var _ = Describe("Service Account Reconcilation", func() {
 		}
 	)
 
+	SetDefaultConsistentlyDuration(timeout)
+	SetDefaultConsistentlyPollingInterval(interval)
+	SetDefaultEventuallyPollingInterval(interval)
+	SetDefaultEventuallyTimeout(timeout)
+
 	When("a correctly annotated service account is created", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -72,7 +77,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 				return err
 
-			}, timeout, interval).Should(Succeed())
+			}).Should(Succeed())
 
 		})
 
@@ -80,6 +85,8 @@ var _ = Describe("Service Account Reconcilation", func() {
 			Expect(secret).ToNot(BeNil())
 			Expect(secret.Name).To(Equal(secretName))
 			Expect(secret.Namespace).To(Equal(namespace))
+			Expect(secret.OwnerReferences).ToNot(BeEmpty())
+			Expect(secret.OwnerReferences).Should(ContainElement(HaveField("Name", serviceAccountName)))
 
 			data := string(secret.Data["config"])
 
@@ -118,7 +125,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		It("should not create a secret", func() {
 			secret = &corev1.Secret{}
 
-			Consistently(secretsIsNotFound(secret), timeout, interval).Should(BeTrue(), "secret is not found")
+			Consistently(secretsIsNotFound(secret)).Should(BeTrue(), "secret is not found")
 		})
 	})
 
@@ -142,7 +149,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		It("should not create a secret", func() {
 			secret = &corev1.Secret{}
 
-			Consistently(secretsIsNotFound(secret), timeout, interval).Should(BeTrue(), "secret is not found")
+			Consistently(secretsIsNotFound(secret)).Should(BeTrue(), "secret is not found")
 		})
 	})
 
@@ -166,7 +173,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		It("should not create a secret", func() {
 			secret = &corev1.Secret{}
 
-			Consistently(secretsIsNotFound(secret), timeout, interval).Should(BeTrue(), "secret is not found")
+			Consistently(secretsIsNotFound(secret)).Should(BeTrue(), "secret is not found")
 		})
 	})
 })
