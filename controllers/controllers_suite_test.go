@@ -19,7 +19,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
