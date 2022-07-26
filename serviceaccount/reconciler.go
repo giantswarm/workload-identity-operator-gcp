@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/giantswarm/to"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,11 +38,13 @@ type ServiceAccountReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts/finalizers,verbs=update
 
 func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.Logger.WithValues("service-account", req.NamespacedName)
+
 	serviceAccount := &corev1.ServiceAccount{}
 
-	err := r.Client.Get(ctx, req.NamespacedName, serviceAccount)
+	err := r.Get(ctx, req.NamespacedName, serviceAccount)
 	if err != nil {
-		r.Logger.Error(err, "could not get service account", "service account", req.NamespacedName)
+		logger.Error(err, "could not get service account")
 		return reconcile.Result{}, nil
 	}
 
@@ -53,19 +54,19 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if !isGCPAnnotated {
 		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPServiceAccount)
-		r.Logger.Info(message, "service-account", req.NamespacedName)
+		logger.Info(message)
 		return reconcile.Result{}, err
 	}
 
 	if !hasWorkloadIdentity {
 		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
-		r.Logger.Info(message, "service-account", req.NamespacedName)
+		logger.Info(message)
 		return reconcile.Result{}, err
 	}
 
 	if !hasIdentityProvider {
 		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPIdentityProvider)
-		r.Logger.Info(message, "service-account", req.NamespacedName)
+		logger.Info(message)
 		return reconcile.Result{}, err
 	}
 
@@ -78,12 +79,7 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}, secret)
 
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.Logger.Error(err, "secret already exists", "service-account", req.NamespacedName)
-		return reconcile.Result{}, err
-	}
-
-	// Secret already exists, no need to create it again
-	if !secret.CreationTimestamp.IsZero() {
+		logger.Error(err, "failed to get secret")
 		return reconcile.Result{}, err
 	}
 
@@ -98,12 +94,43 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	     }
 	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount)
 
-	err = r.createSecret(ctx, serviceAccount, secretName, data)
+	newSecret, err := r.generateNewSecret(serviceAccount, secretName, data)
+	if err != nil {
+		logger.Error(err, "failed to generate new secret")
+		return reconcile.Result{}, err
+	}
+
+	if !secret.CreationTimestamp.IsZero() {
+		err = r.updateSecret(ctx, newSecret)
+		return reconcile.Result{}, err
+	}
+
+	err = r.createSecret(ctx, newSecret)
 
 	return ctrl.Result{}, err
 }
 
-func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAccount *corev1.ServiceAccount, name, data string) error {
+func (r *ServiceAccountReconciler) updateSecret(ctx context.Context, secret *corev1.Secret) error {
+	err := r.Client.Update(ctx, secret)
+	if err != nil {
+		r.Logger.Error(err, "failed to update google application credentials json secret")
+		return err
+	}
+
+	return nil
+}
+
+func (r *ServiceAccountReconciler) createSecret(ctx context.Context, secret *corev1.Secret) error {
+	err := r.Client.Create(ctx, secret)
+	if err != nil {
+		r.Logger.Error(err, "failed to create google application credentials json secret")
+		return err
+	}
+
+	return nil
+}
+
+func (r *ServiceAccountReconciler) generateNewSecret(serviceAccount *corev1.ServiceAccount, name, data string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -116,23 +143,16 @@ func (r *ServiceAccountReconciler) createSecret(ctx context.Context, serviceAcco
 		StringData: map[string]string{
 			webhook.SecretKeyGoogleApplicationCredentials: data,
 		},
-		Immutable: to.BoolP(true),
-		Type:      corev1.SecretTypeServiceAccountToken,
+		Type: corev1.SecretTypeServiceAccountToken,
 	}
 
 	err := controllerutil.SetOwnerReference(serviceAccount, secret, r.Scheme)
 	if err != nil {
 		r.Logger.Error(err, "failed to set owner reference on secret")
-		return err
+		return &corev1.Secret{}, err
 	}
 
-	err = r.Client.Create(ctx, secret)
-	if err != nil {
-		r.Logger.Error(err, "failed to create google application credentials json secret")
-		return err
-	}
-
-	return nil
+	return secret, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
