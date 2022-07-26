@@ -73,7 +73,7 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, SecretNameSuffix)
 	secret := &corev1.Secret{}
 
-	err = r.Client.Get(ctx, types.NamespacedName{
+	err = r.Get(ctx, types.NamespacedName{
 		Name:      secretName,
 		Namespace: req.Namespace,
 	}, secret)
@@ -111,7 +111,7 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *ServiceAccountReconciler) updateSecret(ctx context.Context, secret *corev1.Secret) error {
-	err := r.Client.Update(ctx, secret)
+	err := r.Update(ctx, secret)
 	if err != nil {
 		r.Logger.Error(err, "failed to update google application credentials json secret")
 		return err
@@ -121,7 +121,7 @@ func (r *ServiceAccountReconciler) updateSecret(ctx context.Context, secret *cor
 }
 
 func (r *ServiceAccountReconciler) createSecret(ctx context.Context, secret *corev1.Secret) error {
-	err := r.Client.Create(ctx, secret)
+	err := r.Create(ctx, secret)
 	if err != nil {
 		r.Logger.Error(err, "failed to create google application credentials json secret")
 		return err
