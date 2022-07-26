@@ -25,7 +25,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/giantswarm/workload-identity-operator-gcp/serviceaccount"
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"k8s.io/apimachinery/pkg/runtime"
