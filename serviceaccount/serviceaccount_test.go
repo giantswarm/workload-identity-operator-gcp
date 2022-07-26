@@ -72,7 +72,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 				return err
 
-			}, timeout, interval).Should(BeNil())
+			}, timeout, interval).Should(Succeed())
 
 		})
 
