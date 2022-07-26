@@ -33,7 +33,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
 
-		secretsIsNotFound func(secret *corev1.Secret) bool = func(secret *corev1.Secret) bool {
+		secretsIsNotFound = func(secret *corev1.Secret) bool {
 			err := k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
