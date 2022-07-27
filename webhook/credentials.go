@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	EnvKeyGoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS"
+	EnvKeyGoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS" //#nosec G101
 
 	AnnotationGCPServiceAccount      = "giantswarm.io/gcp-service-account"
 	AnnotationWorkloadIdentityPoolID = "giantswarm.io/gcp-workload-identity-pool-id"
+	AnnotationGCPIdentityProvider    = "giantswarm.io/gcp-identity-provider"
 
 	LabelWorkloadIdentity = "giantswarm.io/gcp-workload-identity"
 
@@ -29,10 +30,10 @@ const (
 	VolumeWorkloadIdentityDefaultMode = 420
 	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 
-	TokenExpirationSeconds                   = 7200
-	ServiceAccountTokenPath                  = "token"
-	GoogleApplicationCredentialsJSONPath     = "google-application-credentials.json"
-	ConfigMapKeyGoogleApplicationCredentials = "config"
+	TokenExpirationSeconds                = 7200
+	ServiceAccountTokenPath               = "token"
+	GoogleApplicationCredentialsJSONPath  = "google-application-credentials.json"
+	SecretKeyGoogleApplicationCredentials = "config"
 )
 
 type CredentialsInjector struct {
@@ -79,21 +80,20 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		return admission.Denied(message)
 	}
 	if err != nil {
-		logger.Error(err, "failed to get Pod ServicAccount")
+		logger.Error(err, "failed to get Pod Service Account")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	configMapName := fmt.Sprintf("%s-%s", pod.Spec.ServiceAccountName, "google-application-credentials")
+	secretName := fmt.Sprintf("%s-%s", pod.Spec.ServiceAccountName, "google-application-credentials")
 	workloadIdentityPool, present := serviceAccount.Annotations[AnnotationWorkloadIdentityPoolID]
 	if !present {
 		message := fmt.Sprintf("ServiceAccount misssing %q annotation", AnnotationWorkloadIdentityPoolID)
 		logger.Info(message)
 		return admission.Denied(message)
-
 	}
 
 	mutatedPod := pod.DeepCopy()
-	injectVolume(mutatedPod, workloadIdentityPool, configMapName)
+	injectVolume(mutatedPod, workloadIdentityPool, secretName)
 
 	for i := range mutatedPod.Spec.Containers {
 		container := &mutatedPod.Spec.Containers[i]
@@ -152,7 +152,7 @@ func injectVolumeMount(container *corev1.Container) {
 	container.VolumeMounts = append(container.VolumeMounts, credentialsMount)
 }
 
-func injectVolume(pod *corev1.Pod, workloadIdentityPool, configMapName string) {
+func injectVolume(pod *corev1.Pod, workloadIdentityPool, secretName string) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name: VolumeWorkloadIdentityName,
 		VolumeSource: corev1.VolumeSource{
@@ -172,17 +172,17 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, configMapName string) {
 						},
 					},
 					{
-						ConfigMap: &corev1.ConfigMapProjection{
+						Secret: &corev1.SecretProjection{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: configMapName,
+								Name: secretName,
 							},
-							Optional: to.BoolP(false),
 							Items: []corev1.KeyToPath{
 								{
-									Key:  ConfigMapKeyGoogleApplicationCredentials,
+									Key:  SecretKeyGoogleApplicationCredentials,
 									Path: GoogleApplicationCredentialsJSONPath,
 								},
 							},
+							Optional: to.BoolP(false),
 						},
 					},
 				},
