@@ -1,7 +1,7 @@
 {
   "extends": [
     "config:base",
-    ":reviewer(team:team-phoenix)"
+    ":reviewer(team:team-hydra)"
   ],
   "labels": ["dependencies"],
   "packageRules": [
