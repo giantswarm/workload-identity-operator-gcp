@@ -159,12 +159,12 @@ var _ = Describe("Credentials", func() {
 									},
 								},
 								map[string]interface{}{
-									"configMap": map[string]interface{}{
+									"secret": map[string]interface{}{
 										"name":     "the-service-account-google-application-credentials",
 										"optional": false,
 										"items": []interface{}{
 											map[string]interface{}{
-												"key":  webhook.ConfigMapKeyGoogleApplicationCredentials,
+												"key":  webhook.SecretKeyGoogleApplicationCredentials,
 												"path": webhook.GoogleApplicationCredentialsJSONPath,
 											},
 										},

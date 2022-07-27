@@ -21,6 +21,15 @@ rules:
       - get
       - create
       - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - list
+      - get
+      - create
+      - watch
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Service account reconciler that creates a `Secret` with the needed `GOOGLE_APPLICATION_CREDENTIALS` json
+
+### Changed
+
+- Move `GOOGLE_APPLICATION_CREDENTIALS` from a `ConfigMap` to a `Secret`
+
 ## [0.2.0] - 2022-07-19
 
 ### Changed
