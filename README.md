@@ -88,7 +88,7 @@ gcloud container hub memberships describe $MEMBERSHIP_NAME
 
 ##### 3.5 Add computer viewer permissions
 ```
-  # give the service account permissions to view compute resources
+  # Add necessary permissions to the GCP Service Account
   gcloud projects add-iam-policy-binding "$GCP_PROJECT_NAME" \
     --role=roles/compute.viewer \
     --member="serviceAccount:$GOOGLE_SA_ID"
