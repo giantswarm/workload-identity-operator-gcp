@@ -158,11 +158,11 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-
 	secret := r.generateMembershipSecret(membershipJson, gcpCluster)
 	err = cl.Create(ctx, secret)
-	if err != nil {
+	if err != nil && !k8serrors.IsAlreadyExists(err){
 		logger.Error(err, "failed to create secret on workload cluster")
+		return reconcile.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
