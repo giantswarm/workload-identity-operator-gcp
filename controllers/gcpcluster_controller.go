@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -126,19 +127,30 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	logger.Info(fmt.Sprintf("Cluster name is %s", gcpCluster.Name))
 
-	oidcjwks, err := r.getOIDCJWKS(config)
+	oidcJwks, err := r.getOIDCJWKS(config)
 	if err != nil {
 		logger.Error(err, "failed to get oidc jwks")
 		return reconcile.Result{}, err
 	}
 
-	membership, err := r.registerMembership(ctx, gcpCluster, oidcjwks)
+	membershipId := GenerateMembershipId(gcpCluster)
+	membership := r.generateMembership(gcpCluster, oidcJwks)
+	membershipExists, err := r.doesMembershipExist(ctx, membershipId)
+
 	if err != nil {
-		logger.Error(err, "failed to register cluster")
+		logger.Error(err, "failed to check memberships existence")
 		return reconcile.Result{}, err
 	}
 
-	logger.Info(fmt.Sprintf("membership %s created", membership.Name))
+	if !membershipExists {
+		err = r.registerMembership(ctx, gcpCluster, membership)
+		if err != nil {
+			logger.Error(err, "failed to register cluster")
+			return reconcile.Result{}, err
+		}
+
+		logger.Info(fmt.Sprintf("membership %s created", membership.Name))
+	}
 
 	membershipJson, err := json.Marshal(membership)
 	if err != nil {
@@ -146,15 +158,8 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	membershipSecret := MembershipSecret{
-		Name:      GenerateMembershipId(gcpCluster),
-		Namespace: "giantswarm",
-		Data:      string(membershipJson),
-		ManagedBy: SecretManagedBy,
-	}
 
-	secret := r.generateMembershipSecret(membershipSecret, gcpCluster.Name)
-
+	secret := r.generateMembershipSecret(membershipJson, gcpCluster)
 	err = cl.Create(ctx, secret)
 	if err != nil {
 		logger.Error(err, "failed to create secret on workload cluster")
@@ -166,6 +171,31 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *GCPClusterReconciler) hasWorkloadIdentityEnabled(cluster *infra.GCPCluster) bool {
 	_, exists := cluster.Annotations[AnnotationWorkloadIdentityEnabled]
 	return exists
+}
+
+func (r *GCPClusterReconciler) doesMembershipExist(ctx context.Context, name string) (bool, error) {
+	c, err := gkehub.NewGkeHubMembershipClient(ctx)
+	if err != nil {
+		r.Logger.Error(err, "failed to create gke hub membership client")
+		return false, err
+	}
+	defer c.Close()
+
+	req := &gkehubpb.GetMembershipRequest{
+		Name: name,
+	}
+
+	_, err = c.GetMembership(ctx, req)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.Logger.Error(err, "error occurred while checking memberships existence")
+		return false, err
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (r *GCPClusterReconciler) getWorkloadClusterConfig(ctx context.Context, cluster *infra.GCPCluster, namespace string) (*rest.Config, error) {
@@ -219,24 +249,15 @@ func (r *GCPClusterReconciler) getOIDCJWKS(config *rest.Config) ([]byte, error) 
 
 }
 
-func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *infra.GCPCluster, oidcJwks []byte) (*gkehubpb.Membership, error) {
+func (r *GCPClusterReconciler) generateMembership(cluster *infra.GCPCluster, oidcJwks []byte) *gkehubpb.Membership {
 	externalId := uuid.New().String()
 	project := cluster.Spec.Project
 
-	membershipId := fmt.Sprintf("%s-workload-identity-test", cluster.Name)
-	parent := fmt.Sprintf("projects/%s/locations/global", project)
 	name := fmt.Sprintf("projects/%s/locations/global/memberships/%s-workload-identity-test", project, cluster.Name)
 
 	workloadIdPool := fmt.Sprintf("%s.svc.id.goog", project)
 	identityProvider := fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", project, name)
 	issuer := "https://kubernetes.default.svc.cluster.local"
-
-	c, err := gkehub.NewGkeHubMembershipClient(ctx)
-	if err != nil {
-		r.Logger.Error(err, "failed to create gke hub membership client")
-		return &gkehubpb.Membership{}, err
-	}
-	defer c.Close()
 
 	membership := &gkehubpb.Membership{
 		Name: name,
@@ -249,39 +270,53 @@ func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *
 		ExternalId: externalId,
 	}
 
+	return membership
+}
+func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *infra.GCPCluster, membership *gkehubpb.Membership) error {
+	project := cluster.Spec.Project
+	membershipId := GenerateMembershipId(cluster)
+	parent := fmt.Sprintf("projects/%s/locations/global", project)
+
+	c, err := gkehub.NewGkeHubMembershipClient(ctx)
+	if err != nil {
+		r.Logger.Error(err, "failed to create gke hub membership client")
+		return err
+	}
+	defer c.Close()
+
 	req := &gkehubpb.CreateMembershipRequest{
 		Parent:       parent,
 		MembershipId: membershipId,
-		Resource: membership,
+		Resource:     membership,
 	}
 
 	op, err := c.CreateMembership(ctx, req)
 	if err != nil {
 		r.Logger.Error(err, "failed to create membership operation")
-		return &gkehubpb.Membership{}, err
+		return err
 	}
 
 	_, err = op.Wait(ctx)
 	if err != nil {
 		r.Logger.Error(err, "failed whilst waiting for create membership operation to compelete")
-		return &gkehubpb.Membership{}, err
+		return err
 	}
 
-	return membership, nil
+	return nil
 }
 
-func (r *GCPClusterReconciler) generateMembershipSecret(membershipSecret MembershipSecret, managementCluster string) *corev1.Secret {
+func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, cluster *infra.GCPCluster) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      membershipSecret.Name,
-			Namespace: membershipSecret.Namespace,
+			Name:      GenerateMembershipId(cluster),
+			Namespace: "giantswarm",
 			Annotations: map[string]string{
-				AnnoationMembershipSecretCreatedBy: managementCluster,
+				AnnoationMembershipSecretCreatedBy: cluster.Name,
 				AnnotationSecretManagedBy:          SecretManagedBy,
 			},
 		},
 		StringData: map[string]string{
-			webhook.SecretKeyGoogleApplicationCredentials: membershipSecret.Data,
+			webhook.SecretKeyGoogleApplicationCredentials: string(membershipJson),
 		},
 	}
 
