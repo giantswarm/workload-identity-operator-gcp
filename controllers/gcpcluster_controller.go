@@ -18,28 +18,42 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 
 	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
+	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 )
 
 const (
-	AnnotationWorkloadIdentityEnabled = "giantswarm.io/workload-identity-enabled"
+	AnnotationWorkloadIdentityEnabled  = "giantswarm.io/workload-identity-enabled"
+	AnnoationMembershipSecretCreatedBy = "app.kubernetes.io/created-by"
+	SuffixMembershipName               = "workload-identity-test"
 )
+
+type MembershipSecret struct {
+	Name      string
+	Namespace string
+	Data      string
+	ManagedBy string
+	Metadata  string
+}
 
 // GCPClusterReconciler reconciles a GCPCluster object
 type GCPClusterReconciler struct {
@@ -124,8 +138,27 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
+	logger.Info(fmt.Sprintf("membership %s created", membership.Name))
 
-    logger.Info(fmt.Sprintf("membership %s created", membership.Name))
+	membershipJson, err := json.Marshal(membership)
+	if err != nil {
+		logger.Error(err, "failed to marshal membership json")
+		return reconcile.Result{}, err
+	}
+
+	membershipSecret := MembershipSecret{
+		Name:      GenerateMembershipId(gcpCluster),
+		Namespace: "giantswarm",
+		Data:      string(membershipJson),
+		ManagedBy: SecretManagedBy,
+	}
+
+	secret := r.generateMembershipSecret(membershipSecret, gcpCluster.Name)
+
+	err = cl.Create(ctx, secret)
+	if err != nil {
+		logger.Error(err, "failed to create secret on workload cluster")
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -205,19 +238,21 @@ func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *
 	}
 	defer c.Close()
 
+	membership := &gkehubpb.Membership{
+		Name: name,
+		Authority: &gkehubpb.Authority{
+			Issuer:               issuer,
+			WorkloadIdentityPool: workloadIdPool,
+			IdentityProvider:     identityProvider,
+			OidcJwks:             oidcJwks,
+		},
+		ExternalId: externalId,
+	}
+
 	req := &gkehubpb.CreateMembershipRequest{
 		Parent:       parent,
 		MembershipId: membershipId,
-		Resource: &gkehubpb.Membership{
-			Name: name,
-			Authority: &gkehubpb.Authority{
-				Issuer:               issuer,
-				WorkloadIdentityPool: workloadIdPool,
-				IdentityProvider:     identityProvider,
-				OidcJwks:             oidcJwks,
-			},
-			ExternalId: externalId,
-		},
+		Resource: membership,
 	}
 
 	op, err := c.CreateMembership(ctx, req)
@@ -226,13 +261,37 @@ func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *
 		return &gkehubpb.Membership{}, err
 	}
 
-	resp, err := op.Wait(ctx)
+	_, err = op.Wait(ctx)
 	if err != nil {
 		r.Logger.Error(err, "failed whilst waiting for create membership operation to compelete")
 		return &gkehubpb.Membership{}, err
 	}
 
-	return resp, nil
+	return membership, nil
+}
+
+func (r *GCPClusterReconciler) generateMembershipSecret(membershipSecret MembershipSecret, managementCluster string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      membershipSecret.Name,
+			Namespace: membershipSecret.Namespace,
+			Annotations: map[string]string{
+				AnnoationMembershipSecretCreatedBy: managementCluster,
+				AnnotationSecretManagedBy:          SecretManagedBy,
+			},
+		},
+		StringData: map[string]string{
+			webhook.SecretKeyGoogleApplicationCredentials: membershipSecret.Data,
+		},
+	}
+
+	finalizer := fmt.Sprintf("%s/finalizer", SecretManagedBy)
+	ok := controllerutil.AddFinalizer(secret, finalizer)
+	if !ok {
+		r.Logger.Info("failed to add finalizer")
+	}
+
+	return secret
 }
 
 func hasOneNodeReady(nodes *corev1.NodeList) bool {
@@ -246,6 +305,10 @@ func hasOneNodeReady(nodes *corev1.NodeList) bool {
 	}
 
 	return false
+}
+
+func GenerateMembershipId(cluster *infra.GCPCluster) string {
+	return fmt.Sprintf("%s-%s", cluster.Name, SuffixMembershipName)
 }
 
 // SetupWithManager sets up the controller with the Manager.
