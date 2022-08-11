@@ -26,6 +26,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -101,14 +103,14 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
-	// decoder, err := admission.NewDecoder(scheme)
-	// if err != nil {
-	// 	exitfIfError(err, "Failed to create admission decoder")
-	// }
-	//
-	// mgr.GetWebhookServer().Register("/", &admission.Webhook{
-	// 	Handler: webhook.NewCredentialsInjector(mgr.GetClient(), decoder),
-	// })
+	decoder, err := admission.NewDecoder(scheme)
+	if err != nil {
+		exitfIfError(err, "Failed to create admission decoder")
+	}
+
+	mgr.GetWebhookServer().Register("/", &admission.Webhook{
+		Handler: webhook.NewCredentialsInjector(mgr.GetClient(), decoder),
+	})
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
