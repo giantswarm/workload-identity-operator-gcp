@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 
 	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
-	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
@@ -38,6 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 )
