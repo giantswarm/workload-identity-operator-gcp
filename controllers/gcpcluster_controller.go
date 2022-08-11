@@ -135,7 +135,7 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	membership := r.generateMembership(gcpCluster, oidcJwks)
+	membership := GenerateMembership(gcpCluster, oidcJwks)
 	membershipExists, err := r.doesMembershipExist(ctx, membership.Name)
 
 	if err != nil {
@@ -250,14 +250,15 @@ func (r *GCPClusterReconciler) getOIDCJWKS(config *rest.Config) ([]byte, error) 
 
 }
 
-func (r *GCPClusterReconciler) generateMembership(cluster *infra.GCPCluster, oidcJwks []byte) *gkehubpb.Membership {
+func GenerateMembership(cluster *infra.GCPCluster, oidcJwks []byte) *gkehubpb.Membership {
 	externalId := uuid.New().String()
 	project := cluster.Spec.Project
 
+	membershipId := GenerateMembershipId(cluster)
 	name := fmt.Sprintf("projects/%s/locations/global/memberships/%s-workload-identity-test", project, cluster.Name)
 
 	workloadIdPool := fmt.Sprintf("%s.svc.id.goog", project)
-	identityProvider := fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", project, name)
+	identityProvider := fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", project, membershipId)
 	issuer := "https://kubernetes.default.svc.cluster.local"
 
 	membership := &gkehubpb.Membership{

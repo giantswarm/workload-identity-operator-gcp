@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,6 +20,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
@@ -101,6 +103,8 @@ var _ = BeforeEach(func() {
 	namespaceObj := &corev1.Namespace{}
 	namespaceObj.Name = namespace
 	Expect(k8sClient.Create(context.Background(), namespaceObj)).To(Succeed())
+
+	Expect(ensureNamespaceExists(context.Background())).To(Succeed())
 })
 
 var _ = AfterEach(func() {
@@ -108,6 +112,23 @@ var _ = AfterEach(func() {
 	namespaceObj.Name = namespace
 	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
+
+func ensureNamespaceExists(ctx context.Context) error {
+	namespaceObj := &corev1.Namespace{}
+
+	err := k8sClient.Get(ctx, client.ObjectKey{
+		Name: controllers.MembershipSecretNamespace,
+	}, namespaceObj)
+
+	if k8serrors.IsNotFound(err) {
+		namespaceObj.Name = controllers.MembershipSecretNamespace
+		err = k8sClient.Create(context.Background(), namespaceObj)
+
+		return err
+	}
+
+	return err
+}
 
 func getRandomPort() (string, error) {
 	var min int64 = 30000
