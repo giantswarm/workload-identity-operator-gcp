@@ -46,6 +46,8 @@ const (
 	AnnotationWorkloadIdentityEnabled  = "giantswarm.io/workload-identity-enabled"
 	AnnoationMembershipSecretCreatedBy = "app.kubernetes.io/created-by"
 	SuffixMembershipName               = "workload-identity-test"
+	MembershipSecretName               = "workload-identity-operator-gcp-membership"
+	MembershipSecretNamespace          = "giantswarm"
 )
 
 type MembershipSecret struct {
@@ -133,9 +135,8 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	membershipId := GenerateMembershipId(gcpCluster)
 	membership := r.generateMembership(gcpCluster, oidcJwks)
-	membershipExists, err := r.doesMembershipExist(ctx, membershipId)
+	membershipExists, err := r.doesMembershipExist(ctx, membership.Name)
 
 	if err != nil {
 		logger.Error(err, "failed to check memberships existence")
@@ -160,7 +161,7 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	secret := r.generateMembershipSecret(membershipJson, gcpCluster)
 	err = cl.Create(ctx, secret)
-	if err != nil && !k8serrors.IsAlreadyExists(err){
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		logger.Error(err, "failed to create secret on workload cluster")
 		return reconcile.Result{}, err
 	}
@@ -308,8 +309,8 @@ func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *
 func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, cluster *infra.GCPCluster) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      GenerateMembershipId(cluster),
-			Namespace: "giantswarm",
+			Name:      MembershipSecretName,
+			Namespace: MembershipSecretNamespace,
 			Annotations: map[string]string{
 				AnnoationMembershipSecretCreatedBy: cluster.Name,
 				AnnotationSecretManagedBy:          SecretManagedBy,

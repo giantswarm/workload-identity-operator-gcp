@@ -2,9 +2,11 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
+	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,8 +51,6 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	gcpServiceAccount, isGCPAnnotated := serviceAccount.Annotations[webhook.AnnotationGCPServiceAccount]
-	workloadIdentityPool, hasWorkloadIdentity := serviceAccount.Annotations[webhook.AnnotationWorkloadIdentityPoolID]
-	identityProvider, hasIdentityProvider := serviceAccount.Annotations[webhook.AnnotationGCPIdentityProvider]
 
 	if !isGCPAnnotated {
 		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPServiceAccount)
@@ -58,15 +58,18 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
-	if !hasWorkloadIdentity {
-		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
-		logger.Info(message)
+	membership, err := r.getMembership(ctx)
+	if err != nil {
+		logger.Error(err, "failed to get membership from secret")
 		return reconcile.Result{}, err
 	}
 
-	if !hasIdentityProvider {
-		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPIdentityProvider)
-		logger.Info(message)
+	identityProvider := membership.Authority.IdentityProvider
+	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
+
+	if identityProvider == "" || workloadIdentityPool == "" {
+		err = fmt.Errorf("membership not configured properly %+v", membership)
+		logger.Error(err, "membership not configured properly")
 		return reconcile.Result{}, err
 	}
 
@@ -110,6 +113,26 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, err
 }
 
+func (r *ServiceAccountReconciler) getMembership(ctx context.Context) (*gkehubpb.Membership, error) {
+	secret := &corev1.Secret{}
+
+	err := r.Get(ctx, client.ObjectKey{
+		Namespace: MembershipSecretNamespace,
+		Name:      MembershipSecretName,
+	}, secret)
+
+	if err != nil {
+		r.Logger.Error(err, "failed to get membership secret")
+		return nil, err
+	}
+
+	data := secret.Data[webhook.SecretKeyGoogleApplicationCredentials]
+
+	membership := &gkehubpb.Membership{}
+	err = json.Unmarshal(data, membership)
+
+	return membership, err
+}
 func (r *ServiceAccountReconciler) updateSecret(ctx context.Context, secret *corev1.Secret) error {
 	err := r.Update(ctx, secret)
 	if err != nil {
