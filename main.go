@@ -108,7 +108,7 @@ func main() {
 	// if err != nil {
 	// 	exitfIfError(err, "Failed to create admission decoder")
 	// }
- //
+	//
 	// mgr.GetWebhookServer().Register("/", &admission.Webhook{
 	// 	Handler: webhook.NewCredentialsInjector(mgr.GetClient(), decoder),
 	// })
