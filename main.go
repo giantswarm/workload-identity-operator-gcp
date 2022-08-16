@@ -49,7 +49,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(infra.AddToScheme(scheme))
-
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -78,7 +77,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "workload-identity-operator-gcp.giantswarm.io",
-		// CertDir:                "/etc/webhook/certs",
+		CertDir:                "/etc/webhook/certs",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

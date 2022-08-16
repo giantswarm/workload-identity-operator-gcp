@@ -13,6 +13,7 @@ rules:
       - get
       - list
       - watch
+      - create
   - apiGroups:
       - coordination.k8s.io
     resources:
@@ -30,7 +31,33 @@ rules:
       - get
       - create
       - watch
-
+      - update
+  - apiGroups:
+      - infrastructure.cluster.x-k8s.io
+    resources:
+      - gcpclusters
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - infrastructure.cluster.x-k8s.io
+    resources:
+      - gcpclusters/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - infrastructure.cluster.x-k8s.io
+    resources:
+      - gcpclusters/status
+    verbs:
+      - get
+      - patch
+      - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
