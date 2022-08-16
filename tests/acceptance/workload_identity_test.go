@@ -2,16 +2,20 @@ package acceptance_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
@@ -21,13 +25,26 @@ var _ = Describe("Workload Identity", func() {
 		ctx context.Context
 		pod *corev1.Pod
 
+		clusterName = "krillin"
+		gcpProject  = "testing-1234"
+		gcpCluster  = &infra.GCPCluster{
+			TypeMeta: metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterName,
+			},
+			Spec: infra.GCPClusterSpec{
+				Project: gcpProject,
+			},
+		}
+
+		membershipId   = controllers.GenerateMembershipId(gcpCluster)
 		serviceAccount *corev1.ServiceAccount
 
 		gcpServiceAccount    = "service-account@email"
-		workloadIdentityPool = "workload-identity-pool-id"
-		identityProvider     = "https://gkehub.googleapis.com/projects/testing-1234/locations/global/memberships/cluster"
+		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
+		identityProvider     = fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
 
-		timeout  = time.Second * 5
+		timeout  = time.Second * 10
 		interval = time.Millisecond * 250
 	)
 
@@ -45,6 +62,8 @@ var _ = Describe("Workload Identity", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
+
+		Expect(ensureMembershipSecretExists(gcpCluster)).To(Succeed())
 
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -133,3 +152,41 @@ var _ = Describe("Workload Identity", func() {
 		Consistently(getPodStatus, "5s").Should(BeTrue(), "pod container errored")
 	})
 })
+
+func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
+	ctx := context.Background()
+	membershipSecret := &corev1.Secret{}
+
+	err := k8sClient.Get(ctx, client.ObjectKey{
+		Name:      controllers.MembershipSecretName,
+		Namespace: controllers.MembershipSecretNamespace,
+	}, membershipSecret)
+
+	if k8serrors.IsNotFound(err) {
+		oidcJwks := []byte{}
+
+		membership := controllers.GenerateMembership(gcpCluster, oidcJwks)
+		membershipJson, err := json.Marshal(membership)
+
+		Expect(err).To(BeNil())
+
+		membershipSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controllers.MembershipSecretName,
+				Namespace: controllers.MembershipSecretNamespace,
+				Annotations: map[string]string{
+					controllers.AnnoationMembershipSecretCreatedBy: gcpCluster.Name,
+					controllers.AnnotationSecretManagedBy:          controllers.SecretManagedBy,
+				},
+			},
+			StringData: map[string]string{
+				webhook.SecretKeyGoogleApplicationCredentials: string(membershipJson),
+			},
+		}
+		err = k8sClient.Create(context.Background(), membershipSecret)
+
+		return err
+	}
+
+	return err
+}
