@@ -31,6 +31,9 @@ var _ = Describe("Workload Identity", func() {
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterName,
+				Annotations: map[string]string{
+					controllers.AnnotationWorkloadIdentityEnabled: "true",
+				},
 			},
 			Spec: infra.GCPClusterSpec{
 				Project: gcpProject,
