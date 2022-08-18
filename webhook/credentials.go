@@ -73,7 +73,7 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		return admission.Denied(message)
 	}
 
-	serviceAccount, err := w.getServiceAccount(ctx, pod)
+	serviceAccount, err := w.getServiceAccount(ctx, pod.Spec.ServiceAccountName, req.Namespace)
 	if k8serrors.IsNotFound(err) {
 		message := "Pod ServiceAccount does not exist"
 		logger.Error(err, message)
@@ -104,11 +104,11 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 	return getPatchedResponse(req, mutatedPod)
 }
 
-func (w *CredentialsInjector) getServiceAccount(ctx context.Context, pod *corev1.Pod) (*corev1.ServiceAccount, error) {
+func (w *CredentialsInjector) getServiceAccount(ctx context.Context, name, namespace string) (*corev1.ServiceAccount, error) {
 	serviceAccount := &corev1.ServiceAccount{}
 	namespacedName := types.NamespacedName{
-		Name:      pod.Spec.ServiceAccountName,
-		Namespace: pod.Namespace,
+		Name:      name,
+		Namespace: namespace,
 	}
 
 	err := w.client.Get(ctx, namespacedName, serviceAccount)

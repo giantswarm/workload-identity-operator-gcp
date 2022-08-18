@@ -50,8 +50,7 @@ var _ = Describe("Credentials", func() {
 
 		pod = corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "the-pod",
-				Namespace: namespace,
+				Name: "the-pod",
 				Labels: map[string]string{
 					webhook.LabelWorkloadIdentity: "enabled",
 				},
@@ -81,6 +80,7 @@ var _ = Describe("Credentials", func() {
 			AdmissionRequest: admissionv1.AdmissionRequest{
 				Object:    encodeObject(pod),
 				Operation: admissionv1.Create,
+				Namespace: namespace,
 			},
 		}
 	})
