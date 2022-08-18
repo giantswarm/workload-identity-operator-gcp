@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Move `GOOGLE_APPLICATION_CREDENTIALS` from a `ConfigMap` to a `Secret`
 
+### Fixed
+- Use Namespace value from request in webhook instead of the Pod definition. Fixes a bug where pods created by controllers like ReplicaSets don't get allowed because of a missing Namespace.
+
 ## [0.2.0] - 2022-07-19
 
 ### Changed
