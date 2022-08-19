@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Add missing ingress to NetworkPolicy
+
+### Changed
+
+- Add `webhookPort` helm value
+
 ## [0.3.0] - 2022-08-18
 
 ### Added
