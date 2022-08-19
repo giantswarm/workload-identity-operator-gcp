@@ -30,10 +30,13 @@ spec:
           image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
           command:
             - /manager
+          args:
+            - "--webhook-port"
+            - "{{ .Values.webhookPort }}"
           ports:
             - name: web
               protocol: TCP
-              containerPort: 9443
+              containerPort: {{ .Values.webhookPort }}
           resources:
             requests:
               cpu: 100m

@@ -7,6 +7,8 @@ image:
 registry:
   domain: quay.io
 
+webhookPort: 9443
+
 pod:
   user:
     id: 1000
