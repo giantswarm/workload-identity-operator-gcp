@@ -34,7 +34,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 				Project: gcpProject,
 			},
 		}
-		membershipId = controllers.GenerateMembershipId(gcpCluster)
+		membershipId = controllers.GenerateMembershipId(*gcpCluster)
 
 		serviceAccount     *corev1.ServiceAccount
 		serviceAccountName = "the-service-account"
@@ -258,7 +258,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 	if k8serrors.IsNotFound(err) {
 		oidcJwks := []byte{}
 
-		membership := controllers.GenerateMembership(gcpCluster, oidcJwks)
+		membership := controllers.GenerateMembership(*gcpCluster, oidcJwks)
 		membershipJson, err := json.Marshal(membership)
 
 		Expect(err).To(BeNil())

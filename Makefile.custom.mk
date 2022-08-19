@@ -66,8 +66,12 @@ lint-imports: goimports ## Run go vet against code.
 create-acceptance-cluster: kind
 	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/ensure-kind-cluster.sh
 
+.PHONY: deploy-capg-crds
+deploy-capg-crds: kind
+	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
+
 .PHONY: deploy-acceptance-cluster
-deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy
+deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds deploy
 
 .PHONY: test-unit
 test-unit: ginkgo generate fmt vet envtest ## Run tests.

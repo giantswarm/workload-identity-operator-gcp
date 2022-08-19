@@ -32,3 +32,16 @@ helm upgrade --install \
   --wait
 
 kubectl apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
+
+SECRET_NAME="$CLUSTER-kubeconfig"
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "$SECRET_NAME"
+  namespace: "giantswarm"
+type: Opaque
+stringData:
+  value: $(printf "%s" $(<"$HOME/.kube/$CLUSTER.yml"))
+EOF
