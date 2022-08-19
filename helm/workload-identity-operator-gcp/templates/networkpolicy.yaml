@@ -11,7 +11,7 @@ spec:
       {{- include "labels.selector" . | nindent 6 }}
   egress:
     - {}
-   ingress:
+  ingress:
     - {}
   policyTypes:
     - Egress
