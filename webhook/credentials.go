@@ -9,8 +9,8 @@ import (
 	"github.com/giantswarm/to"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -77,8 +77,9 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		logger.Error(err, message)
 		return admission.Denied(message)
 	}
+
 	if err != nil {
-		logger.Error(err, "failed to get Pod Service Account")
+		logger.Error(err, "failed to get membership from secret")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
@@ -88,6 +89,7 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		logger.Error(err, "failed to get membership from secret")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
+
 	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
 
 	mutatedPod := pod.DeepCopy()
