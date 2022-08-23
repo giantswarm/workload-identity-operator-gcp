@@ -2,7 +2,6 @@ package acceptance_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -25,12 +24,13 @@ var _ = Describe("Workload Identity", func() {
 		ctx context.Context
 		pod *corev1.Pod
 
-		clusterName = "krillin"
+		clusterName = "acceptance"
 		gcpProject  = "testing-1234"
 		gcpCluster  = &infra.GCPCluster{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: clusterName,
+				Name:      clusterName,
+				Namespace: "giantswarm",
 				Annotations: map[string]string{
 					controllers.AnnotationWorkloadIdentityEnabled: "true",
 				},
@@ -39,8 +39,7 @@ var _ = Describe("Workload Identity", func() {
 				Project: gcpProject,
 			},
 		}
-
-		membershipId   = controllers.GenerateMembershipId(gcpCluster)
+		membershipId   = controllers.GenerateMembershipId(*gcpCluster)
 		serviceAccount *corev1.ServiceAccount
 
 		gcpServiceAccount    = "service-account@email"
@@ -53,6 +52,7 @@ var _ = Describe("Workload Identity", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
+
 		serviceAccount = &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "the-service-account",
@@ -65,8 +65,6 @@ var _ = Describe("Workload Identity", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
-
-		Expect(ensureMembershipSecretExists(gcpCluster)).To(Succeed())
 
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -97,6 +95,12 @@ var _ = Describe("Workload Identity", func() {
 				},
 			},
 		}
+
+		Expect(EnsureClusterCRExists(gcpCluster)).To(Succeed())
+
+		gcpCluster.Status.Ready = true
+
+		Expect(k8sClient.Status().Update(ctx, gcpCluster)).To(Succeed())
 	})
 
 	It("Creates the secret with the credentials needed", func() {
@@ -152,43 +156,24 @@ var _ = Describe("Workload Identity", func() {
 			return workload.Status.ContainerStatuses[0].Ready
 		}
 
-		Eventually(getPodStatus, "60s").Should(BeTrue(), "pod container failed to become ready")
+		Eventually(getPodStatus, "120s").Should(BeTrue(), "pod container failed to become ready")
 		Consistently(getPodStatus, "5s").Should(BeTrue(), "pod container errored")
 	})
 })
 
-func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
+func EnsureClusterCRExists(gcpCluster *infra.GCPCluster) error {
 	ctx := context.Background()
-	membershipSecret := &corev1.Secret{}
 
 	err := k8sClient.Get(ctx, client.ObjectKey{
-		Name:      controllers.MembershipSecretName,
-		Namespace: controllers.MembershipSecretNamespace,
-	}, membershipSecret)
+		Name:      gcpCluster.Name,
+		Namespace: gcpCluster.Namespace,
+	}, gcpCluster)
 
 	if k8serrors.IsNotFound(err) {
-		oidcJwks := []byte{}
-
-		membership := controllers.GenerateMembership(gcpCluster, oidcJwks)
-		membershipJson, err := json.Marshal(membership)
-
-		Expect(err).To(BeNil())
-
-		membershipSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      controllers.MembershipSecretName,
-				Namespace: controllers.MembershipSecretNamespace,
-				Annotations: map[string]string{
-					controllers.AnnoationMembershipSecretCreatedBy: gcpCluster.Name,
-					controllers.AnnotationSecretManagedBy:          controllers.SecretManagedBy,
-				},
-			},
-			StringData: map[string]string{
-				webhook.SecretKeyGoogleApplicationCredentials: string(membershipJson),
-			},
+		err = k8sClient.Create(context.Background(), gcpCluster)
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
 		}
-		err = k8sClient.Create(context.Background(), membershipSecret)
-
 		return err
 	}
 
