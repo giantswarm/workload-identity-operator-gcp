@@ -70,8 +70,12 @@ create-acceptance-cluster: kind
 deploy-capg-crds: kind
 	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
 
+.PHONY: create-test-secrets
+create-test-secrets: kind
+	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
+
 .PHONY: deploy-acceptance-cluster
-deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds deploy
+deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy
 
 .PHONY: test-unit
 test-unit: ginkgo generate fmt vet envtest ## Run tests.
@@ -119,6 +123,8 @@ deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
+		--set operationMode=onprem \
+		--set credentials.name=gcp-credentials \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
