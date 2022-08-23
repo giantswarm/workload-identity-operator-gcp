@@ -3,6 +3,7 @@ package webhook_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,8 +11,10 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -26,8 +29,12 @@ var _ = Describe("Credentials", func() {
 
 		pod            corev1.Pod
 		serviceAccount *corev1.ServiceAccount
+		gcpCluster     *infra.GCPCluster
 		request        admission.Request
 		response       admission.Response
+
+		gcpProject           = "testing-1234"
+		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
 	)
 
 	BeforeEach(func() {
@@ -42,8 +49,7 @@ var _ = Describe("Credentials", func() {
 				Name:      "the-service-account",
 				Namespace: namespace,
 				Annotations: map[string]string{
-					controllers.AnnotationGCPServiceAccount:      "service-account@email",
-					webhook.AnnotationWorkloadIdentityPoolID: "workload-identity-pool-id",
+					controllers.AnnotationGCPServiceAccount: "service-account@email",
 				},
 			},
 		}
@@ -78,6 +84,17 @@ var _ = Describe("Credentials", func() {
 			},
 		}
 
+		clusterName := "krillin"
+		gcpCluster = &infra.GCPCluster{
+			TypeMeta: metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterName,
+			},
+			Spec: infra.GCPClusterSpec{
+				Project: gcpProject,
+			},
+		}
+
 		request = admission.Request{
 			AdmissionRequest: admissionv1.AdmissionRequest{
 				Object:    encodeObject(pod),
@@ -87,6 +104,7 @@ var _ = Describe("Credentials", func() {
 	})
 
 	JustBeforeEach(func() {
+		Expect(ensureMembershipSecretExists(gcpCluster)).To(Succeed())
 		response = credentialsWebhook.Handle(ctx, request)
 	})
 
@@ -142,6 +160,7 @@ var _ = Describe("Credentials", func() {
 
 	It("injects the secret volume", func() {
 		Expect(response.Allowed).To(BeTrue())
+		fmt.Println(response.Patches)
 		Expect(response.Patches).To(ContainElements(
 			jsonpatch.Operation{
 				Operation: "add",
@@ -155,7 +174,7 @@ var _ = Describe("Credentials", func() {
 								map[string]interface{}{
 									"serviceAccountToken": map[string]interface{}{
 										"path":              webhook.ServiceAccountTokenPath,
-										"audience":          "workload-identity-pool-id",
+										"audience":          workloadIdentityPool,
 										"expirationSeconds": float64(webhook.TokenExpirationSeconds),
 									},
 								},
@@ -240,20 +259,6 @@ var _ = Describe("Credentials", func() {
 		})
 	})
 
-	When("the service account isn't annotated with the workload identity id", func() {
-		BeforeEach(func() {
-			modified := serviceAccount.DeepCopy()
-			modified.Annotations = map[string]string{}
-			Expect(k8sClient.Patch(ctx, modified, client.MergeFrom(serviceAccount))).To(Succeed())
-		})
-
-		It("denies the request", func() {
-			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(response.Result).NotTo(BeNil())
-			Expect(response.Result.Code).To(Equal(int32(http.StatusForbidden)))
-		})
-	})
-
 	When("the context has been canceled", func() {
 		It("returns a 500 Internal Server Error", func() {
 			canceledCtx, cancel := context.WithCancel(ctx)
@@ -284,4 +289,42 @@ func encodeObject(obj interface{}) runtime.RawExtension {
 	Expect(err).NotTo(HaveOccurred())
 
 	return runtime.RawExtension{Raw: encodedObj}
+}
+
+func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
+	membershipSecret := &corev1.Secret{}
+	ctx := context.Background()
+
+	err := k8sClient.Get(ctx, client.ObjectKey{
+		Name:      controllers.MembershipSecretName,
+		Namespace: controllers.MembershipSecretNamespace,
+	}, membershipSecret)
+
+	if k8serrors.IsNotFound(err) {
+		oidcJwks := []byte{}
+
+		membership := controllers.GenerateMembership(*gcpCluster, oidcJwks)
+		membershipJson, err := json.Marshal(membership)
+
+		Expect(err).To(BeNil())
+
+		membershipSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      controllers.MembershipSecretName,
+				Namespace: controllers.MembershipSecretNamespace,
+				Annotations: map[string]string{
+					controllers.AnnoationMembershipSecretCreatedBy: gcpCluster.Name,
+					controllers.AnnotationSecretManagedBy:          controllers.SecretManagedBy,
+				},
+			},
+			StringData: map[string]string{
+				controllers.SecretKeyGoogleApplicationCredentials: string(membershipJson),
+			},
+		}
+		err = k8sClient.Create(context.Background(), membershipSecret)
+
+		return err
+	}
+
+	return err
 }
