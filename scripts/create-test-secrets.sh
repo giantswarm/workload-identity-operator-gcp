@@ -79,4 +79,3 @@ data:
 EOF
 
 "$KIND" load docker-image --name "$WORKLOAD_CLUSTER" "$IMG"
-

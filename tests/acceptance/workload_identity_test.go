@@ -26,6 +26,7 @@ var _ = Describe("Workload Identity", func() {
 
 		clusterName = "acceptance-workload-cluster"
 		gcpProject  = "giantswarm-tests"
+
 		gcpCluster  = &infra.GCPCluster{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
