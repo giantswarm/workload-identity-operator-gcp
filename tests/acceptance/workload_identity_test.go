@@ -24,17 +24,9 @@ var _ = Describe("Workload Identity", func() {
 		ctx context.Context
 		pod *corev1.Pod
 
-<<<<<<< HEAD
 		clusterName = "acceptance-workload-cluster"
 		gcpProject  = "giantswarm-tests"
-<<<<<<< HEAD
 
-=======
->>>>>>> 77b76b7 (Update: tests)
-=======
-		clusterName = "acceptance"
-		gcpProject  = "testing-1234"
->>>>>>> c6787c4 (Update: acceptance tests)
 		gcpCluster  = &infra.GCPCluster{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
@@ -73,11 +65,7 @@ var _ = Describe("Workload Identity", func() {
 				},
 			},
 		}
-<<<<<<< HEAD
 		Expect(workloadClient.Create(ctx, serviceAccount)).To(Succeed())
-=======
-		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
->>>>>>> c6787c4 (Update: acceptance tests)
 
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -111,7 +99,6 @@ var _ = Describe("Workload Identity", func() {
 
 		Expect(EnsureClusterCRExists(gcpCluster)).To(Succeed())
 
-<<<<<<< HEAD
 		patch := []byte(`{"status":{"ready":true}}`)
 
 		Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
@@ -129,11 +116,6 @@ var _ = Describe("Workload Identity", func() {
 			return err
 
 		}, "120s").Should(Succeed())
-=======
-		gcpCluster.Status.Ready = true
-
-		Expect(k8sClient.Status().Update(ctx, gcpCluster)).To(Succeed())
->>>>>>> c6787c4 (Update: acceptance tests)
 	})
 
 	It("Creates the secret with the credentials needed", func() {
