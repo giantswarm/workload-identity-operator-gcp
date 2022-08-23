@@ -76,9 +76,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 				}, secret)
 
 				return err
-
 			}).Should(Succeed())
-
 		})
 
 		It("should create a secret with the correct credentials", func() {
@@ -91,15 +89,16 @@ var _ = Describe("Service Account Reconcilation", func() {
 			data := string(secret.Data["config"])
 
 			expectedData := fmt.Sprintf(`{
-	     "type": "external_account",
-	     "audience": "identitynamespace:%[1]s:%[2]s",
-	     "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%[3]s:generateAccessToken",
-	     "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-	     "token_url": "https://sts.googleapis.com/v1/token",
-	     "credential_source": {
-	       "file": "/var/run/secrets/tokens/gcp-ksa/token"
-	     }
-	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount)
+                 "type": "external_account",
+                 "audience": "identitynamespace:%[1]s:%[2]s",
+                 "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%[3]s:generateAccessToken",
+                 "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                 "token_url": "https://sts.googleapis.com/v1/token",
+                 "credential_source": {
+                   "file": "%[4]s/%[5]s"
+                 }
+               }`, workloadIdentityPool, identityProvider, gcpServiceAccount,
+				webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
 
 			Expect(data).Should(MatchJSON(expectedData))
 		})
@@ -120,20 +119,20 @@ var _ = Describe("Service Account Reconcilation", func() {
 					},
 				}
 				Expect(k8sClient.Update(ctx, serviceAccount)).To(Succeed())
-
 			})
 
 			It("should update the secret", func() {
 				expectedData := fmt.Sprintf(`{
-	     "type": "external_account",
-	     "audience": "identitynamespace:%[1]s:%[2]s",
-	     "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%[3]s:generateAccessToken",
-	     "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-	     "token_url": "https://sts.googleapis.com/v1/token",
-	     "credential_source": {
-	       "file": "/var/run/secrets/tokens/gcp-ksa/token"
-	     }
-	   }`, workloadIdentityPool, identityProvider, newGCPServiceAccount)
+                     "type": "external_account",
+                     "audience": "identitynamespace:%[1]s:%[2]s",
+                     "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%[3]s:generateAccessToken",
+                     "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                     "token_url": "https://sts.googleapis.com/v1/token",
+                     "credential_source": {
+                       "file": "%[4]s/%[5]s"
+                     }
+                   }`, workloadIdentityPool, identityProvider, newGCPServiceAccount,
+					webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
 
 				secret = &corev1.Secret{}
 
@@ -152,12 +151,9 @@ var _ = Describe("Service Account Reconcilation", func() {
 					data := string(secret.Data["config"])
 
 					return data
-
 				}).Should(MatchJSON(expectedData))
-
 			})
 		})
-
 	})
 
 	When("a service account without a workload identity pool is created", func() {

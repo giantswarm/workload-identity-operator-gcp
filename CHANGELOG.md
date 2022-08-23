@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed 
+
+- Fix wrong path to the Kubernetes ServiceAccount token in the google application credentials json
+
 ## [0.3.1] - 2022-08-19
 
 ### Fixed

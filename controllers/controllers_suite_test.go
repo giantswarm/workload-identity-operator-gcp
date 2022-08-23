@@ -26,7 +26,7 @@ import (
 
 func TestK8s(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "K8s Suite")
+	RunSpecs(t, "Controllers Suite")
 }
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -114,7 +114,6 @@ func getRandomPort() (string, error) {
 	var max int64 = 33000
 
 	randomNumber, err := rand.Int(rand.Reader, big.NewInt(max-min))
-
 	if err != nil {
 		return "", err
 	}

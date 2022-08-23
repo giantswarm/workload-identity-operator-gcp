@@ -88,7 +88,6 @@ var _ = Describe("Workload Identity", func() {
 			}, secret)
 
 			return err
-
 		}, timeout, interval).Should(BeNil())
 
 		Expect(secret).ToNot(BeNil())
@@ -104,12 +103,12 @@ var _ = Describe("Workload Identity", func() {
 	     "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
 	     "token_url": "https://sts.googleapis.com/v1/token",
 	     "credential_source": {
-	       "file": "/var/run/secrets/tokens/gcp-ksa/token"
+	       "file": "%[4]s/%[5]s"
 	     }
-	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount)
+	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount,
+			webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
 
 		Expect(data).Should(MatchJSON(expectedData))
-
 	})
 
 	It("Injects the credentials file in the pod", func() {
