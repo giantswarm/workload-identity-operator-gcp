@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -41,7 +42,7 @@ var _ = Describe("Credentials", func() {
 				Name:      "the-service-account",
 				Namespace: namespace,
 				Annotations: map[string]string{
-					webhook.AnnotationGCPServiceAccount:      "service-account@email",
+					controllers.AnnotationGCPServiceAccount:      "service-account@email",
 					webhook.AnnotationWorkloadIdentityPoolID: "workload-identity-pool-id",
 				},
 			},
@@ -164,7 +165,7 @@ var _ = Describe("Credentials", func() {
 										"optional": false,
 										"items": []interface{}{
 											map[string]interface{}{
-												"key":  webhook.SecretKeyGoogleApplicationCredentials,
+												"key":  controllers.SecretKeyGoogleApplicationCredentials,
 												"path": webhook.GoogleApplicationCredentialsJSONPath,
 											},
 										},
