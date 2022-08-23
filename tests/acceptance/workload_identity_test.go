@@ -58,7 +58,7 @@ var _ = Describe("Workload Identity", func() {
 				Name:      "the-service-account",
 				Namespace: namespace,
 				Annotations: map[string]string{
-					controllers.AnnotationGCPServiceAccount:      gcpServiceAccount,
+					controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
 					webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
 					webhook.AnnotationGCPIdentityProvider:    identityProvider,
 				},
