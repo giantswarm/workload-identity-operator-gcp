@@ -73,3 +73,4 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(workloadClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
+

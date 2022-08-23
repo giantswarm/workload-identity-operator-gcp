@@ -78,6 +78,10 @@ create-test-secrets: kind
 create-test-secrets: kind
 	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
 
+.PHONY: create-test-secrets
+create-test-secrets: kind
+	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
+
 .PHONY: deploy-acceptance-cluster
 deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy-on-workload-cluster deploy-capg-crds deploy-crds-on-workload deploy
 
