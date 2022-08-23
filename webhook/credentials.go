@@ -10,6 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -71,6 +73,17 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		return admission.Denied(message)
 	}
 
+	_, err = w.getServiceAccount(ctx, pod)
+	if k8serrors.IsNotFound(err) {
+		message := "Pod ServiceAccount does not exist"
+		logger.Error(err, message)
+		return admission.Denied(message)
+	}
+	if err != nil {
+		logger.Error(err, "failed to get Pod Service Account")
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
 	secretName := fmt.Sprintf("%s-%s", pod.Spec.ServiceAccountName, "google-application-credentials")
 	membership, err := controllers.GetMembershipFromSecret(ctx, w.client, logger)
 	if err != nil {
@@ -90,6 +103,22 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 
 	return getPatchedResponse(req, mutatedPod)
 }
+
+func (w *CredentialsInjector) getServiceAccount(ctx context.Context, pod *corev1.Pod) (*corev1.ServiceAccount, error) {
+	serviceAccount := &corev1.ServiceAccount{}
+	namespacedName := types.NamespacedName{
+		Name:      pod.Spec.ServiceAccountName,
+		Namespace: pod.Namespace,
+	}
+
+	err := w.client.Get(ctx, namespacedName, serviceAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	return serviceAccount, nil
+}
+
 func (w *CredentialsInjector) getLogger(ctx context.Context) logr.Logger {
 	logger := log.FromContext(ctx)
 	return logger.WithName("credentials-injector-webhook")
