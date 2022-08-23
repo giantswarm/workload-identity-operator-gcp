@@ -14,8 +14,9 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+
+	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 )
 
 var (
@@ -56,4 +57,3 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
-
