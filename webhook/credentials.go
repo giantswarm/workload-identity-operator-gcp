@@ -119,7 +119,6 @@ func (w *CredentialsInjector) getServiceAccount(ctx context.Context, pod *corev1
 	return serviceAccount, nil
 }
 
-
 func (w *CredentialsInjector) getLogger(ctx context.Context) logr.Logger {
 	logger := log.FromContext(ctx)
 	return logger.WithName("credentials-injector-webhook")
