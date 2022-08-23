@@ -13,7 +13,7 @@ metadata:
   namespace: "giantswarm"
 type: Opaque
 data:
-  value: $( cat ${HOME}/Downloads/$CLUSTER.yml | base64 | tr -d '\n' )
+  value: $( cat ${HOME}/.kube/$CLUSTER.yml | base64 | tr -d '\n' )
 EOF
 
 cat <<EOF | kubectl apply -f -
