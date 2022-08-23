@@ -28,6 +28,11 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          {{- if eq .Values.operationMode "onprem" }}
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/etc/webhook/credentials/file.json"
+          {{- end}}
           command:
             - /manager
           args:
@@ -48,7 +53,18 @@ spec:
             - name: cert
               mountPath: "/etc/webhook/certs"
               readOnly: true
+            {{- if eq .Values.operationMode "onprem" }}
+            - name: gcp-credentials
+              mountPath: "/etc/webhook/credentials"
+              readOnly: true
+            {{- end}}
+
       volumes:
         - name: cert
           secret:
             secretName: {{ include "resource.default.name" . }}
+        {{- if eq .Values.operationMode "onprem" }}
+        - name: gcp-credentials
+          secret:
+            secretName: {{ .Values.credentials.name }}
+        {{- end}}

@@ -8,11 +8,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
+	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 )
 
 var (
@@ -30,11 +33,17 @@ func TestAcceptance(t *testing.T) {
 var _ = BeforeSuite(func() {
 	tests.GetEnvOrSkip("KUBECONFIG")
 
+	scheme := runtime.NewScheme()
+
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(infra.AddToScheme(scheme))
+
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(config, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.New(config, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
+
 })
 
 var _ = BeforeEach(func() {
@@ -47,3 +56,4 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
+
