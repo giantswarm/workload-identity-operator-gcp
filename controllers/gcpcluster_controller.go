@@ -42,8 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
-
 	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 )
 
@@ -310,7 +308,7 @@ func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, c
 			},
 		},
 		StringData: map[string]string{
-			webhook.SecretKeyGoogleApplicationCredentials: string(membershipJson),
+			SecretKeyGoogleApplicationCredentials: string(membershipJson),
 		},
 	}
 

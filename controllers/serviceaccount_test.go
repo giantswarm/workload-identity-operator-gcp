@@ -73,7 +73,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 					Name:      serviceAccountName,
 					Namespace: namespace,
 					Annotations: map[string]string{
-						webhook.AnnotationGCPServiceAccount:      gcpServiceAccount,
+						controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
 						webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
 						webhook.AnnotationGCPIdentityProvider:    identityProvider,
 					},
@@ -130,7 +130,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 						Name:      serviceAccountName,
 						Namespace: namespace,
 						Annotations: map[string]string{
-							webhook.AnnotationGCPServiceAccount:      newGCPServiceAccount,
+							controllers.AnnotationGCPServiceAccount:  newGCPServiceAccount,
 							webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
 							webhook.AnnotationGCPIdentityProvider:    identityProvider,
 						},
@@ -174,30 +174,6 @@ var _ = Describe("Service Account Reconcilation", func() {
 		})
 	})
 
-	When("a service account without a workload identity pool is created", func() {
-		BeforeEach(func() {
-			ctx = context.Background()
-
-			serviceAccount = &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceAccountName,
-					Namespace: namespace,
-					Annotations: map[string]string{
-						webhook.AnnotationGCPServiceAccount:   gcpServiceAccount,
-						webhook.AnnotationGCPIdentityProvider: identityProvider,
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
-		})
-
-		It("should not create a secret", func() {
-			secret = &corev1.Secret{}
-
-			Consistently(secretsIsNotFound(secret)).Should(BeTrue(), "secret is not found")
-		})
-	})
-
 	When("a service account without a gcpServiceAccount annotation is created", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
@@ -231,7 +207,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 					Name:      serviceAccountName,
 					Namespace: namespace,
 					Annotations: map[string]string{
-						webhook.AnnotationGCPServiceAccount:      gcpServiceAccount,
+						controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
 						webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
 					},
 				},
@@ -273,7 +249,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 				},
 			},
 			StringData: map[string]string{
-				webhook.SecretKeyGoogleApplicationCredentials: string(membershipJson),
+				controllers.SecretKeyGoogleApplicationCredentials: string(membershipJson),
 			},
 		}
 		err = k8sClient.Create(context.Background(), membershipSecret)

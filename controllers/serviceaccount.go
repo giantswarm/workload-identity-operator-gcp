@@ -16,17 +16,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
 const (
-	AnnotationSecretMetadata  = "kubernetes.io/service-account.name" //#nosec G101
-	AnnotationSecretManagedBy = "app.kubernetes.io/managed-by"       //#nosec  G101
+	AnnotationSecretMetadata    = "kubernetes.io/service-account.name" //#nosec G101
+	AnnotationSecretManagedBy   = "app.kubernetes.io/managed-by"       //#nosec  G101
+	AnnotationGCPServiceAccount = "giantswarm.io/gcp-service-account"
 
 	SecretManagedBy = "workload-identity-operator-gcp" //#nosec G101
 
-	SecretNameSuffix = "google-application-credentials" //#nosec G101
+	SecretNameSuffix                      = "google-application-credentials" //#nosec G101
+	SecretKeyGoogleApplicationCredentials = "config"
 )
 
 type ServiceAccountReconciler struct {
@@ -50,15 +50,15 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, nil
 	}
 
-	gcpServiceAccount, isGCPAnnotated := serviceAccount.Annotations[webhook.AnnotationGCPServiceAccount]
+	gcpServiceAccount, isGCPAnnotated := serviceAccount.Annotations[AnnotationGCPServiceAccount]
 
 	if !isGCPAnnotated {
-		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPServiceAccount)
+		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", AnnotationGCPServiceAccount)
 		logger.Info(message)
 		return reconcile.Result{}, err
 	}
 
-	membership, err := r.getMembership(ctx)
+	membership, err := GetMembershipFromSecret(ctx, r.Client, logger)
 	if err != nil {
 		logger.Error(err, "failed to get membership from secret")
 		return reconcile.Result{}, err
@@ -116,26 +116,27 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, err
 }
 
-func (r *ServiceAccountReconciler) getMembership(ctx context.Context) (*gkehubpb.Membership, error) {
+func GetMembershipFromSecret(ctx context.Context, c client.Client, logger logr.Logger) (*gkehubpb.Membership, error) {
 	secret := &corev1.Secret{}
 
-	err := r.Get(ctx, client.ObjectKey{
+	err := c.Get(ctx, client.ObjectKey{
 		Namespace: MembershipSecretNamespace,
 		Name:      MembershipSecretName,
 	}, secret)
 
 	if err != nil {
-		r.Logger.Error(err, "failed to get membership secret")
+		logger.Error(err, "failed to get membership secret")
 		return nil, err
 	}
 
-	data := secret.Data[webhook.SecretKeyGoogleApplicationCredentials]
+	data := secret.Data[SecretKeyGoogleApplicationCredentials]
 
 	membership := &gkehubpb.Membership{}
 	err = json.Unmarshal(data, membership)
 
 	return membership, err
 }
+
 func (r *ServiceAccountReconciler) updateSecret(ctx context.Context, secret *corev1.Secret) error {
 	err := r.Update(ctx, secret)
 	if err != nil {
@@ -167,7 +168,7 @@ func (r *ServiceAccountReconciler) generateNewSecret(serviceAccount *corev1.Serv
 			},
 		},
 		StringData: map[string]string{
-			webhook.SecretKeyGoogleApplicationCredentials: data,
+			SecretKeyGoogleApplicationCredentials: data,
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
 	}
