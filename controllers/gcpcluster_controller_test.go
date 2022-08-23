@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
 var _ = Describe("GCPCluster Reconcilation", func() {
@@ -125,7 +124,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnotationSecretManagedBy, controllers.SecretManagedBy))
 			Expect(controllerutil.ContainsFinalizer(secret, controllers.GenerateMembershipSecretFinalizer(controllers.SecretManagedBy)))
 
-			data := secret.Data[webhook.SecretKeyGoogleApplicationCredentials]
+			data := secret.Data[controllers.SecretKeyGoogleApplicationCredentials]
 
 			var membership gkehubpb.Membership
 			membershipId := controllers.GenerateMembershipId(*gcpCluster)
