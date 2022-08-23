@@ -90,9 +90,12 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	     "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
 	     "token_url": "https://sts.googleapis.com/v1/token",
 	     "credential_source": {
-	       "file": "/var/run/secrets/tokens/gcp-ksa/token"
+	       "file": "%[4]s/%[5]s"
 	     }
-	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount)
+	   }`,
+		workloadIdentityPool, identityProvider, gcpServiceAccount,
+		webhook.VolumeMountWorkloadIdentityPath,
+		webhook.ServiceAccountTokenPath)
 
 	newSecret, err := r.generateNewSecret(serviceAccount, secretName, data)
 	if err != nil {

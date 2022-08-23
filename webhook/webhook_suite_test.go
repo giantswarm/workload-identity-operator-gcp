@@ -36,7 +36,7 @@ import (
 
 func TestK8s(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "K8s Suite")
+	RunSpecs(t, "Webhook Suite")
 }
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
