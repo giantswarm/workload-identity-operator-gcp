@@ -9,8 +9,8 @@ import (
 	"github.com/giantswarm/to"
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -118,6 +118,7 @@ func (w *CredentialsInjector) getServiceAccount(ctx context.Context, pod *corev1
 
 	return serviceAccount, nil
 }
+
 
 func (w *CredentialsInjector) getLogger(ctx context.Context) logr.Logger {
 	logger := log.FromContext(ctx)
