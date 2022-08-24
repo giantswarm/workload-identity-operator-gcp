@@ -103,6 +103,20 @@ var _ = Describe("Workload Identity", func() {
 		Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
 	})
 
+	JustBeforeEach(func() {
+		membershipSecret := &corev1.Secret{}
+
+		Eventually(func() error {
+			err := k8sClient.Get(ctx, client.ObjectKey{
+				Name:      controllers.MembershipSecretName,
+				Namespace: controllers.MembershipSecretNamespace,
+			}, membershipSecret)
+
+			return err
+
+		}, "120s").Should(Succeed())
+	})
+
 	It("Creates the secret with the credentials needed", func() {
 		secret := &corev1.Secret{}
 		secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, serviceaccount.SecretNameSuffix)
