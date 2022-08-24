@@ -96,7 +96,7 @@ var _ = Describe("Workload Identity", func() {
 			},
 		}
 
-		Expect(EnsureClusterCRExists(gcpCluster)).To(Succeed())
+		Expect(EnsureClusterCRExists(*gcpCluster)).To(Succeed())
 
 		gcpCluster.Status.Ready = true
 
@@ -160,16 +160,16 @@ var _ = Describe("Workload Identity", func() {
 	})
 })
 
-func EnsureClusterCRExists(gcpCluster *infra.GCPCluster) error {
+func EnsureClusterCRExists(gcpCluster infra.GCPCluster) error {
 	ctx := context.Background()
 
 	err := k8sClient.Get(ctx, client.ObjectKey{
 		Name:      gcpCluster.Name,
 		Namespace: gcpCluster.Namespace,
-	}, gcpCluster)
+	}, &gcpCluster)
 
 	if k8serrors.IsNotFound(err) {
-		err = k8sClient.Create(context.Background(), gcpCluster)
+		err = k8sClient.Create(context.Background(), &gcpCluster)
 		if k8serrors.IsAlreadyExists(err) {
 			return nil
 		}
