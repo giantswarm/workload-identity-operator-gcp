@@ -24,8 +24,8 @@ var _ = Describe("Workload Identity", func() {
 		ctx context.Context
 		pod *corev1.Pod
 
-		clusterName = "acceptance"
-		gcpProject  = "testing-1234"
+		clusterName = "acceptance-workload-cluster"
+		gcpProject  = "giantswarm-tests"
 		gcpCluster  = &infra.GCPCluster{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +64,7 @@ var _ = Describe("Workload Identity", func() {
 				},
 			},
 		}
-		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
+		Expect(workloadClient.Create(ctx, serviceAccount)).To(Succeed())
 
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -107,7 +107,7 @@ var _ = Describe("Workload Identity", func() {
 		membershipSecret := &corev1.Secret{}
 
 		Eventually(func() error {
-			err := k8sClient.Get(ctx, client.ObjectKey{
+			err := workloadClient.Get(ctx, client.ObjectKey{
 				Name:      controllers.MembershipSecretName,
 				Namespace: controllers.MembershipSecretNamespace,
 			}, membershipSecret)
@@ -122,7 +122,7 @@ var _ = Describe("Workload Identity", func() {
 		secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, serviceaccount.SecretNameSuffix)
 
 		Eventually(func() error {
-			err := k8sClient.Get(ctx, client.ObjectKey{
+			err := workloadClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
 			}, secret)
@@ -152,7 +152,7 @@ var _ = Describe("Workload Identity", func() {
 	})
 
 	It("Injects the credentials file in the pod", func() {
-		Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+		Expect(workloadClient.Create(ctx, pod)).To(Succeed())
 
 		getPodStatus := func() bool {
 			podNamespacedName := types.NamespacedName{
@@ -160,7 +160,7 @@ var _ = Describe("Workload Identity", func() {
 				Namespace: namespace,
 			}
 			workload := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, podNamespacedName, workload)).To(Succeed())
+			Expect(workloadClient.Get(ctx, podNamespacedName, workload)).To(Succeed())
 
 			if len(workload.Status.ContainerStatuses) == 0 {
 				return false
