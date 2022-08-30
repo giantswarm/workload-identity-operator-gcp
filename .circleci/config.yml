@@ -21,6 +21,8 @@ jobs:
           apptestctl-version: v0.14.1
           helm-version: v3.8.2
           kubernetes-version: v1.21.1
+      - architect/integratoin-test-setup:
+          setup-script: scripts/setup-test-tools.sh
       - run:
           name: "Setup test tools"
           command: bash scripts/setup-test-tools.sh
