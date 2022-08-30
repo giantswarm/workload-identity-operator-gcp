@@ -68,14 +68,29 @@ create-acceptance-cluster: kind
 
 .PHONY: deploy-capg-crds
 deploy-capg-crds: kind
-	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
+	KUBECONFIG="$(KUBECONFIG)" CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
 
 .PHONY: create-test-secrets
 create-test-secrets: kind
 	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
 
 .PHONY: deploy-acceptance-cluster
-deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy
+deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy-on-workload-cluster deploy-capg-crds deploy-crds-on-workload deploy
+
+.PHONY: deploy-crds-on-workload
+deploy-crds-on-workload: kind
+	KUBECONFIG="$(HOME)/.kube/workload-cluster.yaml" CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
+
+.PHONY: deploy-on-workload-cluster
+deploy-on-workload-cluster: 
+	 helm upgrade --install \
+	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
+		--namespace giantswarm \
+		--set image.tag=$(IMAGE_TAG) \
+		--set operationMode=onprem \
+		--set credentials.name=gcp-credentials \
+		--wait \
+		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
 .PHONY: test-unit
 test-unit: ginkgo generate fmt vet envtest ## Run tests.
@@ -83,7 +98,7 @@ test-unit: ginkgo generate fmt vet envtest ## Run tests.
 
 .PHONY: test-acceptance
 test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
-test-acceptance: ginkgo deploy-acceptance-cluster ## Run acceptance testst
+test-acceptance: ginkgo deploy-acceptance-cluster  ## Run acceptance testst
 	KUBECONFIG="$(KUBECONFIG)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
 
 .PHONY: test-all
@@ -119,7 +134,7 @@ render: architect
 	$(ARCHITECT) helm template --dir $(shell pwd)/helm/rendered/workload-identity-operator-gcp
 
 .PHONY: deploy
-deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests #render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
