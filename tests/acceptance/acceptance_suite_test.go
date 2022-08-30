@@ -65,11 +65,10 @@ var _ = BeforeEach(func() {
 	namespace = uuid.New().String()
 	namespaceObj = &corev1.Namespace{}
 	namespaceObj.Name = namespace
-	// Expect(k8sClient.Create(context.Background(), namespaceObj)).To(Succeed())
-	Expect(workloadClient.Create(context.Background(), namespaceObj)).To(Succeed())
 
+	Expect(workloadClient.Create(context.Background(), namespaceObj)).To(Succeed())
 })
 
 var _ = AfterEach(func() {
-	//	Expect(workloadClient.Delete(context.Background(), namespaceObj)).To(Succeed())
+	Expect(workloadClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })

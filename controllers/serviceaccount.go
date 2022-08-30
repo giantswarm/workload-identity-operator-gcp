@@ -27,6 +27,9 @@ const (
 
 	SecretNameSuffix                      = "google-application-credentials" //#nosec G101
 	SecretKeyGoogleApplicationCredentials = "config"
+
+	ServiceAccountTokenPath              = "token"
+	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 )
 
 type ServiceAccountReconciler struct {
@@ -97,8 +100,8 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	     }
 	   }`,
 		workloadIdentityPool, identityProvider, gcpServiceAccount,
-		webhook.VolumeMountWorkloadIdentityPath,
-		webhook.ServiceAccountTokenPath)
+		VolumeMountWorkloadIdentityPath,
+		ServiceAccountTokenPath)
 
 	newSecret, err := r.generateNewSecret(serviceAccount, secretName, data)
 	if err != nil {
