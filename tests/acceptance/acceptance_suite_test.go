@@ -24,6 +24,7 @@ import (
 
 var (
 	k8sClient      client.Client
+
 	workloadClient client.Client
 
 	namespace    string
