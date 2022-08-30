@@ -185,6 +185,8 @@ func (r *GCPClusterReconciler) doesMembershipExist(ctx context.Context, name str
 		Name: name,
 	}
 
+	r.Logger.Info(fmt.Sprintf("%+v", req))
+
 	_, err := r.GKEHubMembershipClient.GetMembership(ctx, req)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
