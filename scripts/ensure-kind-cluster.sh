@@ -37,6 +37,7 @@ helm upgrade --install \
 
 kubectl apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
 
+export CLUSTER_TOPOLOGY=true
 # "$CLUSTERCTL" init --infrastructure docker
 clusterctl init --infrastructure docker
 
