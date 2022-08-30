@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	k8sClient client.Client
+	k8sClient      client.Client
 	workloadClient client.Client
 
 	namespace    string
@@ -51,7 +51,6 @@ var _ = BeforeSuite(func() {
 	home := tests.GetEnvOrSkip("HOME")
 	workloadClusterConfigPath := fmt.Sprintf("%s/.kube/workload-cluster.yaml", home)
 
-
 	wcfg := clientcmd.GetConfigFromFileOrDie(workloadClusterConfigPath)
 	wcfgc := clientcmd.NewDefaultClientConfig(*wcfg, nil)
 	x, err := wcfgc.ClientConfig()
@@ -72,5 +71,5 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-//	Expect(workloadClient.Delete(context.Background(), namespaceObj)).To(Succeed())
+	//	Expect(workloadClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })
