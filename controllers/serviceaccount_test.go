@@ -172,6 +172,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 				}).Should(MatchJSON(expectedData))
 			})
 		})
+
 	})
 
 	When("a service account without a gcpServiceAccount annotation is created", func() {
