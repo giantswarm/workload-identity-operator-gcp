@@ -146,7 +146,7 @@ var _ = Describe("Workload Identity", func() {
 	       "file": "%[4]s/%[5]s"
 	     }
 	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount,
-			webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
+			controllers.VolumeMountWorkloadIdentityPath, controllers.ServiceAccountTokenPath)
 
 		Expect(data).Should(MatchJSON(expectedData))
 	})

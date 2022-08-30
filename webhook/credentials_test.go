@@ -173,7 +173,7 @@ var _ = Describe("Credentials", func() {
 							"sources": []interface{}{
 								map[string]interface{}{
 									"serviceAccountToken": map[string]interface{}{
-										"path":              webhook.ServiceAccountTokenPath,
+										"path":              controllers.ServiceAccountTokenPath,
 										"audience":          workloadIdentityPool,
 										"expirationSeconds": float64(webhook.TokenExpirationSeconds),
 									},

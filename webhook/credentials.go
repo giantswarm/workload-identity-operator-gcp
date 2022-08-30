@@ -29,10 +29,8 @@ const (
 
 	VolumeWorkloadIdentityName        = "workload-identity-credentials"
 	VolumeWorkloadIdentityDefaultMode = 420
-	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 
 	TokenExpirationSeconds               = 7200
-	ServiceAccountTokenPath              = "token"
 	GoogleApplicationCredentialsJSONPath = "google-application-credentials.json"
 )
 
@@ -134,7 +132,7 @@ func getPatchedResponse(req admission.Request, mutatedPod *corev1.Pod) admission
 }
 
 func injectEnvVar(container *corev1.Container) {
-	credentialsPath := fmt.Sprintf("%s/%s", VolumeMountWorkloadIdentityPath, GoogleApplicationCredentialsJSONPath)
+	credentialsPath := fmt.Sprintf("%s/%s", controllers.VolumeMountWorkloadIdentityPath, GoogleApplicationCredentialsJSONPath)
 
 	credentialsEnvVar := corev1.EnvVar{
 		Name:  EnvKeyGoogleApplicationCredentials,
@@ -146,7 +144,7 @@ func injectEnvVar(container *corev1.Container) {
 func injectVolumeMount(container *corev1.Container) {
 	credentialsMount := corev1.VolumeMount{
 		Name:      VolumeWorkloadIdentityName,
-		MountPath: VolumeMountWorkloadIdentityPath,
+		MountPath: controllers.VolumeMountWorkloadIdentityPath,
 		ReadOnly:  true,
 	}
 	container.VolumeMounts = append(container.VolumeMounts, credentialsMount)
@@ -161,7 +159,7 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, secretName string) {
 				Sources: []corev1.VolumeProjection{
 					{
 						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-							Path:     ServiceAccountTokenPath,
+							Path:     controllers.ServiceAccountTokenPath,
 							Audience: workloadIdentityPool,
 
 							// According to documentation, the service account token will be

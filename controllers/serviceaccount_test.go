@@ -116,7 +116,7 @@ var _ = Describe("Service Account Reconcilation", func() {
                    "file": "%[4]s/%[5]s"
                  }
                }`, workloadIdentityPool, identityProvider, gcpServiceAccount,
-				webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
+				controllers.VolumeMountWorkloadIdentityPath, controllers.ServiceAccountTokenPath)
 
 			Expect(data).Should(MatchJSON(expectedData))
 		})
@@ -150,7 +150,7 @@ var _ = Describe("Service Account Reconcilation", func() {
                        "file": "%[4]s/%[5]s"
                      }
                    }`, workloadIdentityPool, identityProvider, newGCPServiceAccount,
-					webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
+					controllers.VolumeMountWorkloadIdentityPath, controllers.ServiceAccountTokenPath)
 
 				secret = &corev1.Secret{}
 
