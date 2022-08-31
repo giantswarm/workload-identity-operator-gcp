@@ -58,6 +58,7 @@ var _ = Describe("Credentials", func() {
 		pod = corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "the-pod",
+				Namespace: namespace,
 				Labels: map[string]string{
 					webhook.LabelWorkloadIdentity: "enabled",
 				},
