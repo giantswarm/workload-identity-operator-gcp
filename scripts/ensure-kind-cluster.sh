@@ -54,5 +54,16 @@ kubectl -n capi-system rollout status deploy/capi-controller-manager
 
 kubectl apply -f "${SCRIPT_DIR}/assets/workload-cluster.yaml"
 
+set -x
+is_control_plane_ready=$(kubectl get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}')
+while [ "$is_control_plane_ready" != "True" ]; do
+  # kubectl get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}'
+  echo "Waiting for control plane"
+  is_control_plane_ready=$(kubectl get kubeadmcontrolplane.controlplane.cluster.x-k8s.io/controlplane -o jsonpath='{..status.conditions[?(@.type=="Ready")].status}')
+  sleep 5
+done
+
+{ set +x; } 2> /dev/null
+
 "$KIND" load docker-image --name "$WORKLOAD_CLUSTER" "$IMG"
 
