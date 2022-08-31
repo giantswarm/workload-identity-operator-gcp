@@ -7,7 +7,9 @@ TMPDIR=$(mktemp -d)
 readonly TEMP_CREDENTIALS_FILE="$(mktemp)"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly REPO_ROOT="${SCRIPT_DIR}/.."
+readonly KIND="${REPO_ROOT}/bin/kind"
 readonly CLUSTERCTL="${REPO_ROOT}/bin/clusterctl"
+readonly IMG=${IMG:-quay.io/giantswarm/workload-identity-operator-gcp:dev}
 readonly WORKLOAD_CLUSTER="acceptance-workload-cluster"
 readonly SECRET_NAME="$WORKLOAD_CLUSTER-kubeconfig"
 
@@ -75,4 +77,6 @@ type: Opaque
 data:
   file.json: $( cat $CREDENTIALS_FILE | base64 | tr -d '\n' )
 EOF
+
+"$KIND" load docker-image --name "$WORKLOAD_CLUSTER" "$IMG"
 

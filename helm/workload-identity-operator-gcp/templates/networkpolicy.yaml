@@ -9,10 +9,10 @@ spec:
   podSelector:
     matchLabels:
       {{- include "labels.selector" . | nindent 6 }}
+  egress:
+    - {}
   ingress:
-    - ports:
-      - port: {{ .Values.webhookPort }}
-        protocol: TCP
+    - {}
   policyTypes:
     - Egress
     - Ingress
