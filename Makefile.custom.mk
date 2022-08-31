@@ -82,7 +82,7 @@ deploy-crds-on-workload: kind
 	KUBECONFIG="$(HOME)/.kube/workload-cluster.yaml" CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
 
 .PHONY: deploy-on-workload-cluster
-deploy-on-workload-cluster: 
+deploy-on-workload-cluster: manifests render
 	 helm upgrade --install \
 	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
 		--namespace giantswarm \
