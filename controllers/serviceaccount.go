@@ -28,8 +28,8 @@ const (
 	SecretNameSuffix                      = "google-application-credentials" //#nosec G101
 	SecretKeyGoogleApplicationCredentials = "config"
 
-	ServiceAccountTokenPath              = "token"
-	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
+	ServiceAccountTokenPath         = "token"
+	VolumeMountWorkloadIdentityPath = "/var/run/secrets/workload-identity"
 )
 
 type ServiceAccountReconciler struct {
