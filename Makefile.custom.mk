@@ -134,7 +134,7 @@ render: architect
 	$(ARCHITECT) helm template --dir $(shell pwd)/helm/rendered/workload-identity-operator-gcp
 
 .PHONY: deploy
-deploy: manifests #render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
