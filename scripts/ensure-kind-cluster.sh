@@ -7,7 +7,7 @@ readonly REPO_ROOT="${SCRIPT_DIR}/.."
 readonly CLUSTER=${CLUSTER:-"acceptance"}
 readonly KIND="${REPO_ROOT}/bin/kind"
 readonly CLUSTERCTL="${REPO_ROOT}/bin/clusterctl"
-readonly IMG=${IMG:-quay.io/giantswarm/workload-identity-operator-gcp:latest}
+readonly IMG=${IMG:-quay.io/giantswarm/workload-identity-operator-gcp:dev}
 readonly WORKLOAD_CLUSTER="acceptance-workload-cluster"
 
 ensure_kind_cluster() {
@@ -57,7 +57,6 @@ kubectl apply -f "${SCRIPT_DIR}/assets/workload-cluster.yaml"
 set -x
 is_control_plane_ready=$(kubectl get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}')
 while [ "$is_control_plane_ready" != "True" ]; do
-  # kubectl get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}'
   echo "Waiting for control plane"
   is_control_plane_ready=$(kubectl get kubeadmcontrolplane.controlplane.cluster.x-k8s.io/controlplane -o jsonpath='{..status.conditions[?(@.type=="Ready")].status}')
   sleep 5
