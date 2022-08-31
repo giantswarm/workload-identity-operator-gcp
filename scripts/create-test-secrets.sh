@@ -4,6 +4,7 @@ set -euo pipefail
 
 TMPDIR=$(mktemp -d)
 
+readonly TEMP_CREDENTIALS_FILE="$(mktemp)"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 readonly REPO_ROOT="${SCRIPT_DIR}/.."
 readonly CLUSTERCTL="${REPO_ROOT}/bin/clusterctl"
@@ -27,6 +28,15 @@ data:
   value: $( cat "$HOME/.kube/workload-cluster.yaml" | base64 | tr -d '\n' )
 EOF
 
+CREDENTIALS_FILE=${SCRIPT_DIR}/assets/test-credentials.json
+if [ ! -f "$CREDENTIALS_FILE" ]; then
+  B64_GOOGLE_APPLICATION_CREDENTIALS="${B64_GOOGLE_APPLICATION_CREDENTIALS:?Base64 encoded GCP credentials not exported}"
+  echo $B64_GOOGLE_APPLICATION_CREDENTIALS | base64 -d >"$TEMP_CREDENTIALS_FILE"
+
+  echo $TEMP_CREDENTIALS_FILE
+  CREDENTIALS_FILE=$TEMP_CREDENTIALS_FILE
+fi
+
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
@@ -35,7 +45,7 @@ metadata:
   namespace: "giantswarm"
 type: Opaque
 data:
-  file.json: $( cat ${SCRIPT_DIR}/assets/test-credentials.json | base64 | tr -d '\n' )
+  file.json: $( cat $CREDENTIALS_FILE | base64 | tr -d '\n' )
 EOF
 
 
@@ -63,6 +73,6 @@ metadata:
   namespace: "giantswarm"
 type: Opaque
 data:
-  file.json: $( cat ${SCRIPT_DIR}/assets/test-credentials.json | base64 | tr -d '\n' )
+  file.json: $( cat $CREDENTIALS_FILE | base64 | tr -d '\n' )
 EOF
 
