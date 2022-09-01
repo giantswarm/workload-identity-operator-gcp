@@ -20,6 +20,7 @@ import (
 	"google.golang.org/genproto/googleapis/longrunning"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
@@ -150,7 +151,7 @@ var _ = BeforeSuite(func() {
 	gkeClient, err = gkehub.NewGkeHubMembershipClient(ctx,
 		option.WithEndpoint(fakeServerAddr),
 		option.WithoutAuthentication(),
-		option.WithGRPCDialOption(grpc.WithInsecure()),
+		option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
 	)
 
 	Expect(err).NotTo(HaveOccurred())

@@ -47,7 +47,7 @@ import (
 
 const (
 	AnnotationWorkloadIdentityEnabled  = "giantswarm.io/workload-identity-enabled"
-	AnnoationMembershipSecretCreatedBy = "app.kubernetes.io/created-by"
+	AnnoationMembershipSecretCreatedBy = "app.kubernetes.io/created-by" //#nosec G101
 	SuffixMembershipName               = "workload-identity-test"
 	MembershipSecretName               = "workload-identity-operator-gcp-membership"
 	MembershipSecretNamespace          = "giantswarm"
