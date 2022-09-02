@@ -16,7 +16,7 @@ ensure_kind_cluster() {
   if ! "$KIND" get clusters | grep -q "$cluster"; then
     export CLUSTER_TOPOLOGY=true
 
-    "$KIND" create cluster --name "$cluster" --config "${SCRIPT_DIR}/assets/kind-cluster-with-extramounts.yaml" --wait 5m
+    "$KIND" create cluster --name "$cluster" --image kindest/node:v1.22.0 --config "${SCRIPT_DIR}/assets/kind-cluster-with-extramounts.yaml" --wait 5m
   fi
   "$KIND" export kubeconfig --name "$cluster" --kubeconfig "$HOME/.kube/$cluster.yml"
 }
