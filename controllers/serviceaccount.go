@@ -193,7 +193,7 @@ func (r *ServiceAccountReconciler) generateNewSecret(serviceAccount *corev1.Serv
 }
 
 func isEmpty(str string) bool {
-	return len(strings.TrimSpace(str)) < 1 
+	return len(strings.TrimSpace(str)) < 1
 }
 
 // SetupWithManager sets up the controller with the Manager.

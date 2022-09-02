@@ -47,7 +47,6 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
-
 	)
 
 	SetDefaultConsistentlyDuration(timeout)

@@ -41,7 +41,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		gcpServiceAccount    = "service-account@email"
 		workloadIdentityPool = controllers.GenerateWorkpoolId(*gcpCluster)
-		identityProvider = controllers.GenerateIdentityProvider(*gcpCluster, membershipId)
+		identityProvider     = controllers.GenerateIdentityProvider(*gcpCluster, membershipId)
 
 		secret     *corev1.Secret
 		secretName = fmt.Sprintf("%s-%s", serviceAccountName, serviceaccount.SecretNameSuffix)
