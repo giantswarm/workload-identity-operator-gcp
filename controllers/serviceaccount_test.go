@@ -48,7 +48,6 @@ var _ = Describe("Service Account Reconcilation", func() {
 
 		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
-
 	)
 
 	SetDefaultConsistentlyDuration(timeout)
