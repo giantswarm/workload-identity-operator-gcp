@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	k8sClient      client.Client
+	k8sClient client.Client
 
 	workloadClient client.Client
 
