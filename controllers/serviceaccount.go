@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
@@ -70,8 +71,14 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	identityProvider := membership.Authority.IdentityProvider
 	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
 
-	if identityProvider == "" || workloadIdentityPool == "" {
-		err = fmt.Errorf("membership not configured properly %+v", membership)
+	if isEmpty(identityProvider) {
+		err = fmt.Errorf("membership does not have an identity provider %+v", membership)
+		logger.Error(err, "membership not configured properly")
+		return reconcile.Result{}, err
+	}
+
+	if isEmpty(workloadIdentityPool) {
+		err = fmt.Errorf("membership does not have a workload identity pool %+v", membership)
 		logger.Error(err, "membership not configured properly")
 		return reconcile.Result{}, err
 	}
@@ -183,6 +190,10 @@ func (r *ServiceAccountReconciler) generateNewSecret(serviceAccount *corev1.Serv
 	}
 
 	return secret, nil
+}
+
+func isEmpty(str string) bool {
+	return len(strings.TrimSpace(str)) < 1 
 }
 
 // SetupWithManager sets up the controller with the Manager.

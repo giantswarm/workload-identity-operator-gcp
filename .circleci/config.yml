@@ -25,9 +25,6 @@ jobs:
           name: "Setup test tools"
           command: bash scripts/setup-test-tools.sh
       - run:
-          name: "Setup test tools"
-          command: bash scripts/setup-test-tools.sh
-      - run:
           name: "Run acceptance tests"
           command: CGO_ENABLED=0 make test-acceptance
 

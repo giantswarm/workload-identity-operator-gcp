@@ -1,26 +1,10 @@
-/*
-Copyright 2022.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controllers
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"time"
 
 	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
@@ -74,15 +58,6 @@ type GCPClusterReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the GCPCluster object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Logger.WithValues("gcpcluster", req.NamespacedName)
 
@@ -185,15 +160,14 @@ func (r *GCPClusterReconciler) doesMembershipExist(ctx context.Context, name str
 		Name: name,
 	}
 
-	r.Logger.Info(fmt.Sprintf("%+v", req))
-
 	_, err := r.GKEHubMembershipClient.GetMembership(ctx, req)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return false, nil
 		}
 
-		r.Logger.Error(err, "error occurred while checking memberships existence")
+		message := fmt.Sprintf("error occurred while checking membership - %+v", req)
+		r.Logger.Error(err, message)
 		return false, err
 	}
 
@@ -241,7 +215,7 @@ func (r *GCPClusterReconciler) getOIDCJWKS(config *rest.Config) ([]byte, error) 
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		r.Logger.Error(err, "failed to read oidc jwks response body")
 		return []byte{}, err
@@ -300,6 +274,8 @@ func (r *GCPClusterReconciler) registerMembership(ctx context.Context, cluster *
 }
 
 func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, cluster *infra.GCPCluster) *corev1.Secret {
+	membershipJsonString := string(membershipJson)
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MembershipSecretName,
@@ -310,14 +286,15 @@ func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, c
 			},
 		},
 		StringData: map[string]string{
-			SecretKeyGoogleApplicationCredentials: string(membershipJson),
+			SecretKeyGoogleApplicationCredentials: membershipJsonString,
 		},
 	}
 
 	finalizer := GenerateMembershipSecretFinalizer(SecretManagedBy)
 	ok := controllerutil.AddFinalizer(secret, finalizer)
 	if !ok {
-		r.Logger.Info("failed to add finalizer")
+		message := fmt.Sprintf("failed to add finalizer for %s membership secret", cluster.Name)
+		r.Logger.Info(message)
 	}
 
 	return secret
@@ -359,7 +336,6 @@ func GenerateMembershipSecretFinalizer(value string) string {
 // SetupWithManager sets up the controller with the Manager.
 func (r *GCPClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&infra.GCPCluster{}).
 		Complete(r)
 }

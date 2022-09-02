@@ -40,8 +40,8 @@ var _ = Describe("Service Account Reconcilation", func() {
 		serviceAccountName = "the-service-account"
 
 		gcpServiceAccount    = "service-account@email"
-		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
-		identityProvider     = fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
+		workloadIdentityPool = controllers.GenerateWorkpoolId(*gcpCluster)
+		identityProvider = controllers.GenerateIdentityProvider(*gcpCluster, membershipId)
 
 		secret     *corev1.Secret
 		secretName = fmt.Sprintf("%s-%s", serviceAccountName, serviceaccount.SecretNameSuffix)

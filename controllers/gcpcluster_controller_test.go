@@ -48,14 +48,6 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
 
-		// secretsIsNotFound = func(secret *corev1.Secret) bool {
-		// 	err := k8sClient.Get(ctx, client.ObjectKey{
-		// 		Namespace: controllers.MembershipSecretNamespace,
-		// 		Name:      secretName,
-		// 	}, secret)
-		//
-		// 	return err != nil && k8serrors.IsNotFound(err)
-		// }
 	)
 
 	SetDefaultConsistentlyDuration(timeout)
