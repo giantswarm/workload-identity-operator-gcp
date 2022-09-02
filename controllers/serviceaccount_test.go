@@ -49,14 +49,6 @@ var _ = Describe("Service Account Reconcilation", func() {
 		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
 
-		secretsIsNotFound = func(secret *corev1.Secret) bool {
-			err := k8sClient.Get(ctx, client.ObjectKey{
-				Namespace: namespace,
-				Name:      secretName,
-			}, secret)
-
-			return err != nil && k8serrors.IsNotFound(err)
-		}
 	)
 
 	SetDefaultConsistentlyDuration(timeout)
@@ -174,53 +166,6 @@ var _ = Describe("Service Account Reconcilation", func() {
 		})
 	})
 
-	When("a service account without a gcpServiceAccount annotation is created", func() {
-		BeforeEach(func() {
-			ctx = context.Background()
-
-			serviceAccount = &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceAccountName,
-					Namespace: namespace,
-					Annotations: map[string]string{
-						webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
-						webhook.AnnotationGCPIdentityProvider:    identityProvider,
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
-		})
-
-		It("should not create a secret", func() {
-			secret = &corev1.Secret{}
-
-			Consistently(secretsIsNotFound(secret)).Should(BeTrue(), "secret is not found")
-		})
-	})
-
-	When("a service account without an identity provider annotation is created", func() {
-		BeforeEach(func() {
-			ctx = context.Background()
-
-			serviceAccount = &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceAccountName,
-					Namespace: namespace,
-					Annotations: map[string]string{
-						controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
-						webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
-		})
-
-		It("should not create a secret", func() {
-			secret = &corev1.Secret{}
-
-			Consistently(secretsIsNotFound(secret)).Should(BeTrue(), "secret is not found")
-		})
-	})
 })
 
 func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
