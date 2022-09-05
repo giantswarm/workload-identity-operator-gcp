@@ -16,6 +16,7 @@ import (
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -40,7 +41,7 @@ var _ = Describe("Workload Identity", func() {
 				Project: gcpProject,
 			},
 		}
-		membershipId   = controllers.GenerateMembershipId(*gcpCluster)
+		membershipId   = gke.GenerateMembershipId(*gcpCluster)
 		serviceAccount *corev1.ServiceAccount
 
 		gcpServiceAccount    = "service-account@email"

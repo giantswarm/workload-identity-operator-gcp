@@ -16,6 +16,7 @@ import (
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -34,14 +35,14 @@ var _ = Describe("Service Account Reconcilation", func() {
 				Project: gcpProject,
 			},
 		}
-		membershipId = controllers.GenerateMembershipId(*gcpCluster)
+		membershipId = gke.GenerateMembershipId(*gcpCluster)
 
 		serviceAccount     *corev1.ServiceAccount
 		serviceAccountName = "the-service-account"
 
 		gcpServiceAccount    = "service-account@email"
-		workloadIdentityPool = controllers.GenerateWorkpoolId(*gcpCluster)
-		identityProvider     = controllers.GenerateIdentityProvider(*gcpCluster, membershipId)
+		workloadIdentityPool = gke.GenerateWorkpoolId(*gcpCluster)
+		identityProvider     = gke.GenerateIdentityProvider(*gcpCluster, membershipId)
 
 		secret     *corev1.Secret
 		secretName = fmt.Sprintf("%s-%s", serviceAccountName, serviceaccount.SecretNameSuffix)
@@ -64,9 +65,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 					Name:      serviceAccountName,
 					Namespace: namespace,
 					Annotations: map[string]string{
-						controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
-						webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
-						webhook.AnnotationGCPIdentityProvider:    identityProvider,
+						controllers.AnnotationGCPServiceAccount: gcpServiceAccount,
 					},
 				},
 			}
@@ -178,7 +177,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 	if k8serrors.IsNotFound(err) {
 		oidcJwks := []byte{}
 
-		membership := controllers.GenerateMembership(*gcpCluster, oidcJwks)
+		membership := gke.GenerateMembership(*gcpCluster, oidcJwks)
 		membershipJson, err := json.Marshal(membership)
 
 		Expect(err).To(BeNil())

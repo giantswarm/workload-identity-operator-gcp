@@ -12,7 +12,9 @@ spec:
   egress:
     - {}
   ingress:
-    - {}
+    - ports:
+      - port: {{ .Values.webhookPort }}
+        protocol: TCP
   policyTypes:
     - Egress
     - Ingress

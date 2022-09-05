@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -304,7 +305,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 	if k8serrors.IsNotFound(err) {
 		oidcJwks := []byte{}
 
-		membership := controllers.GenerateMembership(*gcpCluster, oidcJwks)
+		membership := gke.GenerateMembership(*gcpCluster, oidcJwks)
 		membershipJson, err := json.Marshal(membership)
 
 		Expect(err).To(BeNil())

@@ -28,6 +28,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
@@ -107,11 +108,16 @@ func main() {
 
 	defer gkehubClient.Close()
 
+	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
+		gkehubClient,
+		ctrl.Log.WithName("gke-membership-reconciler"),
+	)
+
 	if err = (&controllers.GCPClusterReconciler{
-		Client:                 mgr.GetClient(),
-		Logger:                 ctrl.Log.WithName("gcp-cluster-reconciler"),
-		Scheme:                 mgr.GetScheme(),
-		GKEHubMembershipClient: gkehubClient,
+		Client:                  mgr.GetClient(),
+		Logger:                  ctrl.Log.WithName("gcp-cluster-reconciler"),
+		Scheme:                  mgr.GetScheme(),
+		GKEMembershipReconciler: gkeMembershipReconciler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GCPCluster")
 		os.Exit(1)

@@ -74,14 +74,6 @@ deploy-capg-crds: kind
 create-test-secrets: kind
 	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
 
-.PHONY: create-test-secrets
-create-test-secrets: kind
-	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
-
-.PHONY: create-test-secrets
-create-test-secrets: kind
-	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
-
 .PHONY: deploy-acceptance-cluster
 deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy-crds-on-workload deploy-on-workload-cluster deploy
 
@@ -106,7 +98,7 @@ test-unit: ginkgo generate fmt vet envtest ## Run tests.
 
 .PHONY: test-acceptance
 test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
-test-acceptance: ginkgo deploy-acceptance-cluster  ## Run acceptance testst
+test-acceptance: ginkgo deploy-acceptance-cluster ## Run acceptance testst
 	KUBECONFIG="$(KUBECONFIG)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
 
 .PHONY: test-all

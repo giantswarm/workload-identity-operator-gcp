@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
 )
 
 var _ = Describe("GCPCluster Reconcilation", func() {
@@ -118,13 +119,13 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			data := secret.Data[controllers.SecretKeyGoogleApplicationCredentials]
 
 			var membership gkehubpb.Membership
-			membershipId := controllers.GenerateMembershipId(*gcpCluster)
+			membershipId := gke.GenerateMembershipId(*gcpCluster)
 			Expect(json.Unmarshal(data, &membership)).To(Succeed())
 
-			Expect(membership.Name).To(Equal(controllers.GenerateMembershipName(*gcpCluster)))
-			Expect(membership.Authority.Issuer).To(Equal(controllers.AuthorityIssuer))
-			Expect(membership.Authority.WorkloadIdentityPool).To(Equal(controllers.GenerateWorkpoolId(*gcpCluster)))
-			Expect(membership.Authority.IdentityProvider).To(Equal(controllers.GenerateIdentityProvider(*gcpCluster, membershipId)))
+			Expect(membership.Name).To(Equal(gke.GenerateMembershipName(*gcpCluster)))
+			Expect(membership.Authority.Issuer).To(Equal(gke.AuthorityIssuer))
+			Expect(membership.Authority.WorkloadIdentityPool).To(Equal(gke.GenerateWorkpoolId(*gcpCluster)))
+			Expect(membership.Authority.IdentityProvider).To(Equal(gke.GenerateIdentityProvider(*gcpCluster, membershipId)))
 			Expect(MatchRegexp(`[a-zA-Z0-9][a-zA-Z0-9_\-\.]*`).Match(membership.ExternalId)).To(BeTrue())
 		})
 

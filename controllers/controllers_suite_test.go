@@ -41,6 +41,7 @@ import (
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
@@ -157,11 +158,16 @@ var _ = BeforeSuite(func() {
 
 	Expect(err).NotTo(HaveOccurred())
 
+	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
+		gkeClient,
+		ctrl.Log.WithName("gke-membership-reconciler"),
+	)
+
 	clusterReconciler := controllers.GCPClusterReconciler{
-		Client:                 k8sClient,
-		Scheme:                 mgr.GetScheme(),
-		Logger:                 logf.Log,
-		GKEHubMembershipClient: gkeClient,
+		Client:                  k8sClient,
+		Scheme:                  mgr.GetScheme(),
+		Logger:                  logf.Log,
+		GKEMembershipReconciler: gkeMembershipReconciler,
 	}
 
 	err = clusterReconciler.SetupWithManager(mgr)
