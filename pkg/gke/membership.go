@@ -147,6 +147,3 @@ func GenerateIdentityProvider(cluster capg.GCPCluster, membershipId string) stri
 	return fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", cluster.Spec.Project, membershipId)
 }
 
-func GenerateMembershipSecretFinalizer(value string) string {
-	return fmt.Sprintf("%s/finalizer", value)
-}
