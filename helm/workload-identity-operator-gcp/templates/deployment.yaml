@@ -63,7 +63,7 @@ spec:
         - name: cert
           secret:
             secretName: {{ include "resource.default.name" . }}
-        {{- if eq .Values.useLocalCredentials }}
+        {{- if .Values.useLocalCredentials }}
         - name: gcp-credentials
           secret:
             secretName: {{ .Values.credentials.name }}

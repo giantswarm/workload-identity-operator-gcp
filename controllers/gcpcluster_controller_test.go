@@ -79,22 +79,26 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-			readyNodeCondition := corev1.NodeCondition{
-				Type:   corev1.NodeReady,
-				Status: corev1.ConditionTrue,
-			}
-
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterName,
+					Namespace: "giantswarm",
 				},
-				Spec:   corev1.NodeSpec{},
-				Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{readyNodeCondition}},
+				Spec: corev1.NodeSpec{},
 			}
 
 			err = k8sClient.Create(ctx, node)
 			Expect(err).To(BeNil())
 
+			err = k8sClient.Get(context.Background(), client.ObjectKey{
+				Namespace: "giantswarm",
+				Name:      clusterName,
+			}, node)
+
+			nodePatch := []byte(`{"status": {"conditions":[{"type": "nodeReady", "status": "true"}]}}`)
+			Expect(k8sClient.Status().Patch(ctx, node, client.RawPatch(types.MergePatchType, nodePatch))).To(Succeed())
+
+			Expect(err).To(BeNil())
 			patch := []byte(`{"status":{"ready":true}}`)
 			Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
 		})
