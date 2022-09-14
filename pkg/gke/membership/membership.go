@@ -1,16 +1,15 @@
-package gke
+package membership
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 
-	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	"github.com/googleapis/gax-go"
+	"google.golang.org/api/googleapi"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 )
@@ -19,9 +18,9 @@ const (
 	AuthorityIssuer = "https://kubernetes.default.svc.cluster.local"
 )
 
+//counterfeiter:generate . GKEMembershipClient
 type GKEMembershipClient interface {
-	CreateMembership(context context.Context, req *gkehubpb.CreateMembershipRequest, opts ...gax.CallOption) (*gkehub.CreateMembershipOperation, error)
-	GetMembership(ctx context.Context, req *gkehubpb.GetMembershipRequest, opts ...gax.CallOption) (*gkehubpb.Membership, error)
+	RegisterMembership(ctx context.Context, cluster *capg.GCPCluster, membership *gkehubpb.Membership) error
 }
 
 type GKEMembershipReconciler struct {
@@ -44,20 +43,16 @@ func (r *GKEMembershipReconciler) Reconcile(ctx context.Context, gcpCluster *cap
 	logger := r.Logger.WithValues("gkemembership", gcpCluster.Name)
 
 	membership := GenerateMembership(*gcpCluster, oidcJwks)
-	membershipExists, err := r.doesMembershipExist(ctx, membership.Name)
-	if err != nil {
-		logger.Error(err, "failed to check memberships existence")
-		return membership, err
-	}
 
-	if !membershipExists {
-		err = r.registerMembership(ctx, gcpCluster, membership)
-		if err != nil {
-			logger.Error(err, "failed to register cluster membership")
-			return membership, err
+	err := r.client.RegisterMembership(ctx, gcpCluster, membership)
+	if err != nil {
+		if hasHttpCode(err, http.StatusConflict) {
+			//Expect contents of membership to always be the same for a cluster
+			logger.Info(fmt.Sprintf("membership %s already exists", membership.Name))
+			return membership, nil
 		}
 
-		logger.Info(fmt.Sprintf("membership %s created", membership.Name))
+		return membership, err
 	}
 
 	return membership, nil
@@ -86,51 +81,6 @@ func GenerateMembership(cluster capg.GCPCluster, oidcJwks []byte) *gkehubpb.Memb
 	return membership
 }
 
-func (r *GKEMembershipReconciler) doesMembershipExist(ctx context.Context, name string) (bool, error) {
-	req := &gkehubpb.GetMembershipRequest{
-		Name: name,
-	}
-
-	_, err := r.client.GetMembership(ctx, req)
-	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return false, nil
-		}
-
-		message := fmt.Sprintf("error occurred while checking membership - %+v", req)
-		r.Logger.Error(err, message)
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (r *GKEMembershipReconciler) registerMembership(ctx context.Context, cluster *capg.GCPCluster, membership *gkehubpb.Membership) error {
-	project := cluster.Spec.Project
-	membershipId := GenerateMembershipId(*cluster)
-	parent := fmt.Sprintf("projects/%s/locations/global", project)
-
-	req := &gkehubpb.CreateMembershipRequest{
-		Parent:       parent,
-		MembershipId: membershipId,
-		Resource:     membership,
-	}
-
-	op, err := r.client.CreateMembership(ctx, req)
-	if err != nil {
-		r.Logger.Error(err, "failed to create membership operation")
-		return err
-	}
-
-	_, err = op.Wait(ctx)
-	if err != nil {
-		r.Logger.Error(err, "failed whilst waiting for create membership operation to compelete")
-		return err
-	}
-
-	return nil
-}
-
 func GenerateMembershipId(cluster capg.GCPCluster) string {
 	return fmt.Sprintf("%s-%s", cluster.Name, "workload-identity")
 }
@@ -147,3 +97,13 @@ func GenerateIdentityProvider(cluster capg.GCPCluster, membershipId string) stri
 	return fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", cluster.Spec.Project, membershipId)
 }
 
+func hasHttpCode(err error, statusCode int) bool {
+	var googleErr *googleapi.Error
+	if errors.As(err, &googleErr) {
+		if googleErr.Code == statusCode {
+			return true
+		}
+	}
+
+	return false
+}

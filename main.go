@@ -28,7 +28,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
+	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
@@ -100,7 +100,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	gkehubClient, err := gkehub.NewGkeHubMembershipClient(ctx)
+	gkehubClient, err := gkehub.NewGkeHubMembershipRESTClient(ctx)
 	if err != nil {
 		setupLog.Error(err, "failed to create gke hub membership client")
 		os.Exit(1)
@@ -108,8 +108,9 @@ func main() {
 
 	defer gkehubClient.Close()
 
+	gkeClient := gke.NewClient(gkehubClient)
 	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
-		gkehubClient,
+		gkeClient,
 		ctrl.Log.WithName("gke-membership-reconciler"),
 	)
 

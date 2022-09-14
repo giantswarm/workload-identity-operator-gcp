@@ -54,11 +54,11 @@ var _ = BeforeSuite(func() {
 	workloadClusterConfigPath := fmt.Sprintf("%s/.kube/workload-cluster.yaml", home)
 
 	wcfg := clientcmd.GetConfigFromFileOrDie(workloadClusterConfigPath)
-	wcfgc := clientcmd.NewDefaultClientConfig(*wcfg, nil)
-	x, err := wcfgc.ClientConfig()
+	wcdcfg := clientcmd.NewDefaultClientConfig(*wcfg, nil)
+	wccfg, err := wcdcfg.ClientConfig()
 	Expect(err).NotTo(HaveOccurred())
 
-	workloadClient, err = client.New(x, client.Options{Scheme: scheme})
+	workloadClient, err = client.New(wccfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 
 })

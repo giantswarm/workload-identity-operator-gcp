@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
+	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 )
 
 var _ = Describe("GCPCluster Reconcilation", func() {
@@ -78,6 +78,22 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			readyNodeCondition := corev1.NodeCondition{
+				Type:   corev1.NodeReady,
+				Status: corev1.ConditionTrue,
+			}
+
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterName,
+				},
+				Spec:   corev1.NodeSpec{},
+				Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{readyNodeCondition}},
+			}
+
+			err = k8sClient.Create(ctx, node)
+			Expect(err).To(BeNil())
 
 			patch := []byte(`{"status":{"ready":true}}`)
 			Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())

@@ -6,25 +6,15 @@ import (
 	"fmt"
 	"go/build"
 	"math/big"
-	"net"
 	"net/url"
 	"path/filepath"
 	"strconv"
 	"testing"
 
-	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"google.golang.org/api/option"
-	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
-	"google.golang.org/genproto/googleapis/longrunning"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,34 +32,11 @@ import (
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
+	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership/membershipfakes"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
-
-type FakeGKEServer struct {
-	gkehubpb.UnimplementedGkeHubMembershipServiceServer
-}
-
-func (fs *FakeGKEServer) CreateMembership(context.Context, *gkehubpb.CreateMembershipRequest) (*longrunning.Operation, error) {
-	op := &longrunning.Operation{
-		Name: "create",
-		Done: true,
-		Result: &longrunning.Operation_Response{
-			Response: &anypb.Any{
-				TypeUrl: "http://google.cloud.gkehub.v1beta1.Membership",
-				Value:   []byte{},
-			},
-		},
-	}
-	return op, nil
-}
-
-func (fs *FakeGKEServer) GetMembership(ctx context.Context, req *gkehubpb.GetMembershipRequest) (*gkehubpb.Membership, error) {
-	err := status.Error(codes.NotFound, fmt.Sprintf("%s not found", req.Name))
-
-	return &gkehubpb.Membership{}, err
-}
 
 func TestK8s(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -88,8 +55,6 @@ var (
 
 	ctx    context.Context
 	cancel context.CancelFunc
-
-	gkeClient *gkehub.GkeHubMembershipClient
 )
 
 var _ = BeforeSuite(func() {
@@ -140,30 +105,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	fakeServer := &FakeGKEServer{}
-	l, err := net.Listen("tcp", "localhost:0")
-	Expect(err).To(BeNil())
-
-	gsrv := grpc.NewServer()
-	gkehubpb.RegisterGkeHubMembershipServiceServer(gsrv, fakeServer)
-	fakeServerAddr := l.Addr().String()
-	go func() {
-		if err := gsrv.Serve(l); err != nil {
-			Expect(err).NotTo(HaveOccurred(), "failed to start grpc server")
-		}
-	}()
-
-	// Create a client.
-	gkeClient, err = gkehub.NewGkeHubMembershipClient(ctx,
-		option.WithEndpoint(fakeServerAddr),
-		option.WithoutAuthentication(),
-		option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
-	)
-
-	Expect(err).NotTo(HaveOccurred())
+	fakeGKEClient := new(membershipfakes.FakeGKEMembershipClient)
 
 	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
-		gkeClient,
+		fakeGKEClient,
 		ctrl.Log.WithName("gke-membership-reconciler"),
 	)
 

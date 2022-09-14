@@ -22,7 +22,7 @@ import (
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 
-	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke"
+	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 )
 
 const (

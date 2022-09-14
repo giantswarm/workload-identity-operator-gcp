@@ -82,7 +82,7 @@ deploy-crds-on-workload: kind
 	KUBECONFIG="$(HOME)/.kube/workload-cluster.yaml" CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
 
 .PHONY: deploy-on-workload-cluster
-deploy-on-workload-cluster: manifests render
+deploy-on-workload-cluster: manifests #render
 	 helm upgrade --install \
 	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
 		--namespace giantswarm \
@@ -134,7 +134,7 @@ render: architect
 	$(ARCHITECT) helm template --dir $(shell pwd)/helm/rendered/workload-identity-operator-gcp
 
 .PHONY: deploy
-deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: manifests #render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
