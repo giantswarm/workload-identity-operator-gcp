@@ -87,7 +87,7 @@ deploy-on-workload-cluster: manifests render
 	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
-		--set operationMode=onprem \
+		--set useLocalCredentials=true \
 		--set credentials.name=gcp-credentials \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
@@ -138,7 +138,7 @@ deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
-		--set operationMode=onprem \
+		--set useLocalCredentials=true \
 		--set credentials.name=gcp-credentials \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
