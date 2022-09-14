@@ -81,7 +81,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: clusterName,
+					Name:      clusterName,
 					Namespace: "giantswarm",
 				},
 				Spec: corev1.NodeSpec{},
