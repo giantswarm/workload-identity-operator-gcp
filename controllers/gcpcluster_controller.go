@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -21,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 
 	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 )
@@ -37,7 +37,6 @@ const (
 // GCPClusterReconciler reconciles a GCPCluster object
 type GCPClusterReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
 	Logger logr.Logger
 
 	GKEMembershipReconciler *gke.GKEMembershipReconciler
@@ -70,6 +69,18 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, nil
 	}
 
+	kubeadmControlPlane := &capi.KubeadmControlPlane{}
+	r.Get(ctx, req.NamespacedName, kubeadmControlPlane)
+
+	if !kubeadmControlPlane.Status.Ready {
+		message := fmt.Sprintf("skipping Cluster %s because controlplane is not ready", gcpCluster.Name)
+		logger.Info(message)
+		return reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 15,
+		}, nil
+	}
+
 	config, err := r.getWorkloadClusterConfig(ctx, gcpCluster, req.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to get kubeconfig")
@@ -79,19 +90,6 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	workloadClusterClient, err := client.New(config, client.Options{})
 	if err != nil {
 		logger.Error(err, "failed to create workload cluster client")
-		return reconcile.Result{}, err
-	}
-
-	nodes := &corev1.NodeList{}
-	err = workloadClusterClient.List(ctx, nodes)
-	if err != nil {
-		logger.Error(err, "failed to list nodes in cluster")
-		return reconcile.Result{}, err
-	}
-
-	if !hasOneNodeReady(nodes) {
-		message := fmt.Sprintf("skipping cluster %s because no node is ready", req.NamespacedName)
-		logger.Info(message)
 		return reconcile.Result{}, err
 	}
 
@@ -122,10 +120,7 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	return ctrl.Result{
-		Requeue:      true,
-		RequeueAfter: time.Minute * 5,
-	}, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *GCPClusterReconciler) hasWorkloadIdentityEnabled(cluster *capg.GCPCluster) bool {
@@ -141,7 +136,6 @@ func (r *GCPClusterReconciler) getWorkloadClusterConfig(ctx context.Context, clu
 		Name:      secretName,
 		Namespace: namespace,
 	}, secret)
-
 	if err != nil {
 		r.Logger.Error(err, "could not get cluster secret")
 		return &rest.Config{}, err
@@ -216,7 +210,6 @@ func hasOneNodeReady(nodes *corev1.NodeList) bool {
 			if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
 				return true
 			}
-
 		}
 	}
 

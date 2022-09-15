@@ -27,6 +27,7 @@ var (
 
 	workloadClient client.Client
 
+	gcpProject   string
 	namespace    string
 	namespaceObj *corev1.Namespace
 )
@@ -37,6 +38,7 @@ func TestAcceptance(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	gcpProject = tests.GetEnvOrSkip("GCP_PROJECT_ID")
 	tests.GetEnvOrSkip("KUBECONFIG")
 
 	scheme := runtime.NewScheme()
@@ -60,7 +62,6 @@ var _ = BeforeSuite(func() {
 
 	workloadClient, err = client.New(wccfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
-
 })
 
 var _ = BeforeEach(func() {

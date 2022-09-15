@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
@@ -26,7 +25,6 @@ var _ = Describe("Workload Identity", func() {
 		pod *corev1.Pod
 
 		clusterName = "acceptance-workload-cluster"
-		gcpProject  = "giantswarm-tests"
 
 		gcpCluster = &infra.GCPCluster{
 			TypeMeta: metav1.TypeMeta{},
@@ -115,13 +113,12 @@ var _ = Describe("Workload Identity", func() {
 			}, membershipSecret)
 
 			return err
-
 		}, "120s").Should(Succeed())
 	})
 
 	It("Creates the secret with the credentials needed", func() {
 		secret := &corev1.Secret{}
-		secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, serviceaccount.SecretNameSuffix)
+		secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, controllers.SecretNameSuffix)
 
 		Eventually(func() error {
 			err := workloadClient.Get(ctx, client.ObjectKey{

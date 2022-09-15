@@ -22,7 +22,9 @@ ensure_kind_cluster() {
 }
 
 ensure_kind_cluster "$CLUSTER"
-kubectl create namespace giantswarm --kubeconfig "$HOME/.kube/$CLUSTER.yml" || true
+KUBECTL="kubectl --kubeconfig=$HOME/.kube/$CLUSTER.yml"
+
+$KUBECTL create namespace giantswarm --kubeconfig "$HOME/.kube/$CLUSTER.yml" || true
 "$KIND" load docker-image --name "$CLUSTER" "$IMG"
 
 helm repo add jetstack https://charts.jetstack.io
@@ -35,33 +37,32 @@ helm upgrade --install \
   --set installCRDs=true \
   --wait
 
-kubectl apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
+$KUBECTL apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
 
 export CLUSTER_TOPOLOGY=true
-clusterctl init --infrastructure docker
+clusterctl init --infrastructure docker || true
 
 echo "---> Waiting for CAPI controller deployments to be ready"
 
 set -x
 
-kubectl -n "capd-system" rollout status "deploy/capd-controller-manager"
-kubectl -n capi-kubeadm-bootstrap-system rollout status deploy/capi-kubeadm-bootstrap-controller-manager
-kubectl -n capi-kubeadm-control-plane-system rollout status deploy/capi-kubeadm-control-plane-controller-manager
-kubectl -n capi-system rollout status deploy/capi-controller-manager
+$KUBECTL -n "capd-system" rollout status "deploy/capd-controller-manager"
+$KUBECTL -n capi-kubeadm-bootstrap-system rollout status deploy/capi-kubeadm-bootstrap-controller-manager
+$KUBECTL -n capi-kubeadm-control-plane-system rollout status deploy/capi-kubeadm-control-plane-controller-manager
+$KUBECTL -n capi-system rollout status deploy/capi-controller-manager
 
-{ set +x; } 2> /dev/null
+{ set +x; } 2>/dev/null
 
-kubectl apply -f "${SCRIPT_DIR}/assets/workload-cluster.yaml"
+$KUBECTL apply -f "${SCRIPT_DIR}/assets/workload-cluster.yaml"
 
 set -x
-is_control_plane_ready=$(kubectl get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}')
+is_control_plane_ready=$($KUBECTL get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}')
 while [ "$is_control_plane_ready" != "True" ]; do
   echo "Waiting for control plane"
-  is_control_plane_ready=$(kubectl get kubeadmcontrolplane.controlplane.cluster.x-k8s.io/controlplane -o jsonpath='{..status.conditions[?(@.type=="Ready")].status}')
+  is_control_plane_ready=$($KUBECTL get kubeadmcontrolplane.controlplane.cluster.x-k8s.io/controlplane -o jsonpath='{..status.conditions[?(@.type=="Ready")].status}')
   sleep 5
 done
 
-{ set +x; } 2> /dev/null
+{ set +x; } 2>/dev/null
 
 "$KIND" load docker-image --name "$WORKLOAD_CLUSTER" "$IMG"
-

@@ -10,45 +10,40 @@ import (
 	. "github.com/onsi/gomega"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
+	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership/membershipfakes"
+	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 )
 
 var _ = Describe("GCPCluster Reconcilation", func() {
 	var (
 		ctx context.Context
 
+		fakeGKEClient     *membershipfakes.FakeGKEMembershipClient
+		clusterReconciler *controllers.GCPClusterReconciler
+
 		clusterName = "krillin"
 		gcpProject  = "testing-1234"
 
-		gcpCluster = &infra.GCPCluster{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      clusterName,
-				Namespace: "giantswarm",
-				Annotations: map[string]string{
-					controllers.AnnotationWorkloadIdentityEnabled: "true",
-				},
-			},
-			Spec: infra.GCPClusterSpec{
-				Project: gcpProject,
-			},
-			Status: infra.GCPClusterStatus{
-				Ready: true,
-			},
-		}
-
-		secret     *corev1.Secret
-		secretName = controllers.MembershipSecretName
+		gcpCluster          *capg.GCPCluster
+		kubeadmControlPlane *capi.KubeadmControlPlane
 
 		timeout  = time.Second * 5
 		interval = time.Millisecond * 250
+
+		result      reconcile.Result
+		reconcilErr error
 	)
 
 	SetDefaultConsistentlyDuration(timeout)
@@ -60,7 +55,42 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
 
+			gcpCluster = &capg.GCPCluster{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: namespace,
+					Annotations: map[string]string{
+						controllers.AnnotationWorkloadIdentityEnabled: "true",
+					},
+				},
+				Spec: capg.GCPClusterSpec{
+					Project: gcpProject,
+				},
+				Status: capg.GCPClusterStatus{
+					Ready: true,
+				},
+			}
+
+			kubeadmControlPlane = &capi.KubeadmControlPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterName,
+					Namespace: namespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, kubeadmControlPlane)).To(Succeed())
+
+			controlPlaneStatus := capi.KubeadmControlPlaneStatus{
+				Ready: true,
+			}
+
+			tests.PatchControlPlaneStatus(k8sClient, kubeadmControlPlane, controlPlaneStatus)
+
 			Expect(k8sClient.Create(ctx, gcpCluster)).To(Succeed())
+			clusterStatus := capg.GCPClusterStatus{
+				Ready: true,
+			}
+			tests.PatchClusterStatus(k8sClient, gcpCluster, clusterStatus)
 
 			secretName := fmt.Sprintf("%s-kubeconfig", gcpCluster.Name)
 			contents, err := KubeConfigFromREST(cfg)
@@ -70,56 +100,66 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: "giantswarm",
+					Namespace: namespace,
 				},
 				Data: map[string][]byte{
 					"value": contents,
 				},
 			}
-
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-			node := &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      clusterName,
-					Namespace: "giantswarm",
-				},
-				Spec: corev1.NodeSpec{},
+			fakeGKEClient = new(membershipfakes.FakeGKEMembershipClient)
+
+			gkeMembershipReconciler := gke.NewGKEClusterReconciler(
+				fakeGKEClient,
+				ctrl.Log.WithName("gke-membership-reconciler"),
+			)
+
+			clusterReconciler = &controllers.GCPClusterReconciler{
+				Client:                  k8sClient,
+				Logger:                  logf.Log,
+				GKEMembershipReconciler: gkeMembershipReconciler,
 			}
-
-			err = k8sClient.Create(ctx, node)
-			Expect(err).To(BeNil())
-
-			err = k8sClient.Get(context.Background(), client.ObjectKey{
-				Namespace: "giantswarm",
-				Name:      clusterName,
-			}, node)
-
-			nodePatch := []byte(`{"status": {"conditions":[{"type": "nodeReady", "status": "true"}]}}`)
-			Expect(k8sClient.Status().Patch(ctx, node, client.RawPatch(types.MergePatchType, nodePatch))).To(Succeed())
-
-			Expect(err).To(BeNil())
-			patch := []byte(`{"status":{"ready":true}}`)
-			Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			secret = &corev1.Secret{}
-
-			Eventually(func() error {
-				err := k8sClient.Get(ctx, client.ObjectKey{
-					Namespace: controllers.MembershipSecretNamespace,
-					Name:      controllers.MembershipSecretName,
-				}, secret)
-
-				return err
-
-			}).Should(Succeed())
+			req := reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      gcpCluster.Name,
+					Namespace: gcpCluster.Namespace,
+				},
+			}
+			result, reconcilErr = clusterReconciler.Reconcile(ctx, req)
 		})
 
-		It("should create a gke membership secret with the correct credentials", func() {
+		AfterEach(func() {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      controllers.MembershipSecretName,
+					Namespace: controllers.MembershipSecretNamespace,
+				},
+			}
+			err := k8sClient.Delete(ctx, secret)
+			if !k8serrors.IsNotFound(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		It("reconciles successfully", func() {
+			Expect(reconcilErr).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+		})
+
+		It("creates a gke membership secret with the correct credentials", func() {
+			secret := &corev1.Secret{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: controllers.MembershipSecretNamespace,
+				Name:      controllers.MembershipSecretName,
+			}, secret)
+			Expect(err).NotTo(HaveOccurred())
+
 			Expect(secret).ToNot(BeNil())
-			Expect(secret.Name).To(Equal(secretName))
+			Expect(secret.Name).To(Equal(controllers.MembershipSecretName))
 			Expect(secret.Namespace).To(Equal(controllers.MembershipSecretNamespace))
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnoationMembershipSecretCreatedBy, clusterName))
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnotationSecretManagedBy, controllers.SecretManagedBy))
@@ -138,5 +178,20 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			Expect(MatchRegexp(`[a-zA-Z0-9][a-zA-Z0-9_\-\.]*`).Match(membership.ExternalId)).To(BeTrue())
 		})
 
+		When("the kubeadm control plane is not ready", func() {
+			BeforeEach(func() {
+				controlPlaneStatus := capi.KubeadmControlPlaneStatus{
+					Ready: false,
+				}
+
+				tests.PatchControlPlaneStatus(k8sClient, kubeadmControlPlane, controlPlaneStatus)
+			})
+
+			It("requeues the request", func() {
+				Expect(reconcilErr).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeTrue())
+				Expect(result.RequeueAfter).To(Equal(time.Second * 15))
+			})
+		})
 	})
 })

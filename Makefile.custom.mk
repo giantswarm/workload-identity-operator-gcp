@@ -42,6 +42,18 @@ all: build
 
 ##@ Development
 
+.PHONY: ensure-gcp-envs
+ensure-gcp-envs:
+ifndef GCP_PROJECT_ID
+	$(error GCP_PROJECT_ID is undefined)
+endif
+
+.PHONY: ensure-deploy-envs
+ensure-deploy-envs: ensure-gcp-envs
+ifndef B64_GOOGLE_APPLICATION_CREDENTIALS
+	$(error B64_GOOGLE_APPLICATION_CREDENTIALS is undefined)
+endif
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -87,7 +99,7 @@ deploy-on-workload-cluster: manifests render
 	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
-		--set gcp-credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS)
+		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
@@ -95,16 +107,23 @@ deploy-on-workload-cluster: manifests render
 test-unit: ginkgo generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites --skip-package=tests ./...
 
-.PHONY: test-acceptance
-test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
-test-acceptance: ginkgo deploy-acceptance-cluster ## Run acceptance testst
+.PHONY: cleanup-gkehub
+cleanup-gkehub:
+	gcloud container fleet memberships --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
+
+.PHONY: run-acceptance-tests
+run-acceptance-tests:
 	$(eval GOOGLE_APPLICATION_CREDENTIALS=$(shell ${PWD}/scripts/create-gcp-credentials-file.sh))
 	GOOGLE_APPLICATION_CREDENTIALS=$(GOOGLE_APPLICATION_CREDENTIALS) \
-	KUBECONFIG="$(KUBECONFIG)"\ 
+	KUBECONFIG="$(KUBECONFIG)" \
 	$(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
 
+.PHONY: test-acceptance
+test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
+test-acceptance: ensure-deploy-envs ginkgo deploy-acceptance-cluster run-acceptance-tests cleanup-gkehub ## Run acceptance testst
+
 .PHONY: test-all
-test-all: lint lint-imports test-unit test-integration test-acceptance ## Run all tests and litner
+test-all: lint lint-imports test-unit test-acceptance ## Run all tests and litner
 ##@ Build
 
 .PHONY: build

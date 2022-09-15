@@ -117,7 +117,6 @@ func main() {
 	if err = (&controllers.GCPClusterReconciler{
 		Client:                  mgr.GetClient(),
 		Logger:                  ctrl.Log.WithName("gcp-cluster-reconciler"),
-		Scheme:                  mgr.GetScheme(),
 		GKEMembershipReconciler: gkeMembershipReconciler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GCPCluster")

@@ -23,7 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kcapi "k8s.io/client-go/tools/clientcmd/api"
-	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -31,9 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
-	"github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership/membershipfakes"
 	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	//+kubebuilder:scaffold:imports
 )
@@ -66,13 +64,15 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.1.5", "config", "crd", "bases"),
+			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.1.5", "controlplane", "kubeadm", "config", "crd", "bases"),
 			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api-provider-gcp@v1.1.1", "config", "crd", "bases"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(infra.AddToScheme(scheme))
+	utilruntime.Must(capg.AddToScheme(scheme))
+	utilruntime.Must(capi.AddToScheme(scheme))
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -91,7 +91,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
 
-	serviceAccountReconciler := &serviceaccount.ServiceAccountReconciler{
+	serviceAccountReconciler := &controllers.ServiceAccountReconciler{
 		Client: mgr.GetClient(),
 		Logger: ctrl.Log.WithName("service-account-reconciler"),
 		Scheme: mgr.GetScheme(),
@@ -104,23 +104,6 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	fakeGKEClient := new(membershipfakes.FakeGKEMembershipClient)
-
-	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
-		fakeGKEClient,
-		ctrl.Log.WithName("gke-membership-reconciler"),
-	)
-
-	clusterReconciler := controllers.GCPClusterReconciler{
-		Client:                  k8sClient,
-		Scheme:                  mgr.GetScheme(),
-		Logger:                  logf.Log,
-		GKEMembershipReconciler: gkeMembershipReconciler,
-	}
-
-	err = clusterReconciler.SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		err := mgr.Start(ctx)

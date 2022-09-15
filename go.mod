@@ -26,8 +26,14 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
+	github.com/coredns/caddy v1.1.0 // indirect
+	github.com/coredns/corefile-migration v1.0.17 // indirect
+	github.com/docker/distribution v2.8.1+incompatible // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	k8s.io/cluster-bootstrap v0.23.0 // indirect
 )
 
 require (
@@ -95,7 +101,7 @@ require (
 	k8s.io/klog/v2 v2.70.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8 // indirect
 	k8s.io/utils v0.0.0-20220725171434-9bab9ef40391 // indirect
-	sigs.k8s.io/cluster-api v1.1.5 // indirect
+	sigs.k8s.io/cluster-api v1.1.5
 	sigs.k8s.io/cluster-api-provider-gcp v1.1.1
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
