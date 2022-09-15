@@ -87,8 +87,7 @@ deploy-on-workload-cluster: manifests render
 	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
-		--set useLocalCredentials=true \
-		--set credentials.name=gcp-credentials \
+		--set gcp-credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS)
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
@@ -99,7 +98,10 @@ test-unit: ginkgo generate fmt vet envtest ## Run tests.
 .PHONY: test-acceptance
 test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
 test-acceptance: ginkgo deploy-acceptance-cluster ## Run acceptance testst
-	KUBECONFIG="$(KUBECONFIG)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
+	$(eval GOOGLE_APPLICATION_CREDENTIALS=$(shell ${PWD}/scripts/create-gcp-credentials-file.sh))
+	GOOGLE_APPLICATION_CREDENTIALS=$(GOOGLE_APPLICATION_CREDENTIALS) \
+	KUBECONFIG="$(KUBECONFIG)"\ 
+	$(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
 
 .PHONY: test-all
 test-all: lint lint-imports test-unit test-integration test-acceptance ## Run all tests and litner
@@ -138,8 +140,7 @@ deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
 		--namespace giantswarm \
 		--set image.tag=$(IMAGE_TAG) \
-		--set useLocalCredentials=true \
-		--set credentials.name=gcp-credentials \
+		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 

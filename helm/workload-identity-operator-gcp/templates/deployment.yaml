@@ -28,11 +28,9 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
-          {{- if .Values.useLocalCredentials }}
           env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: "/etc/webhook/credentials/file.json"
-          {{- end}}
+              value: /home/.gcp/credentials
           command:
             - /manager
           args:
@@ -53,18 +51,13 @@ spec:
             - name: cert
               mountPath: "/etc/webhook/certs"
               readOnly: true
-            {{- if .Values.useLocalCredentials }}
-            - name: gcp-credentials
-              mountPath: "/etc/webhook/credentials"
+            - name: credentials
+              mountPath: "home/.gcp"
               readOnly: true
-            {{- end}}
-
       volumes:
         - name: cert
           secret:
             secretName: {{ include "resource.default.name" . }}
-        {{- if .Values.useLocalCredentials }}
-        - name: gcp-credentials
+        - name: credentials
           secret:
-            secretName: {{ .Values.credentials.name }}
-        {{- end}}
+            secretName: {{ include "resource.default.name" . }}-gcp-credentials
