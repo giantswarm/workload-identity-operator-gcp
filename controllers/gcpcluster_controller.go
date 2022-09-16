@@ -70,7 +70,11 @@ func (r *GCPClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	kubeadmControlPlane := &capi.KubeadmControlPlane{}
-	r.Get(ctx, req.NamespacedName, kubeadmControlPlane)
+	err = r.Get(ctx, req.NamespacedName, kubeadmControlPlane)
+	if err != nil {
+		logger.Error(err, "could not get the kubeadm control plane")
+		return reconcile.Result{}, err
+	}
 
 	if !kubeadmControlPlane.Status.Ready {
 		message := fmt.Sprintf("skipping Cluster %s because controlplane is not ready", gcpCluster.Name)

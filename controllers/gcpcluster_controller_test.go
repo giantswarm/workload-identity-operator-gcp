@@ -1,18 +1,24 @@
 package controllers_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/api/googleapi"
 	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -93,7 +99,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			tests.PatchClusterStatus(k8sClient, gcpCluster, clusterStatus)
 
 			secretName := fmt.Sprintf("%s-kubeconfig", gcpCluster.Name)
-			contents, err := KubeConfigFromREST(cfg)
+			kubeconfig, err := KubeConfigFromREST(cfg)
 
 			Expect(err).To(BeNil())
 
@@ -103,7 +109,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 					Namespace: namespace,
 				},
 				Data: map[string][]byte{
-					"value": contents,
+					"value": kubeconfig,
 				},
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
@@ -193,5 +199,123 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 				Expect(result.RequeueAfter).To(Equal(time.Second * 15))
 			})
 		})
+
+		When("the workload cluster config is missing", func() {
+			BeforeEach(func() {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-kubeconfig", gcpCluster.Name),
+						Namespace: namespace,
+					},
+				}
+
+				Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+			})
+
+			It("returns a not found error", func() {
+				Expect(reconcilErr).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(reconcilErr)).To(BeTrue())
+			})
+		})
+
+		When("the workload cluster config is broken", func() {
+			BeforeEach(func() {
+				secret := &corev1.Secret{}
+
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      fmt.Sprintf("%s-kubeconfig", gcpCluster.Name),
+					Namespace: namespace,
+				}, secret)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				secret.Data = map[string][]byte{
+					"value": []byte("{'title': 'Its a cold cold world'}"),
+				}
+
+				Expect(k8sClient.Update(ctx, secret)).To(Succeed())
+			})
+
+			It("returns an error", func() {
+				Expect(reconcilErr).To(HaveOccurred())
+				Expect(clientcmd.IsConfigurationInvalid(reconcilErr)).To(BeTrue())
+			})
+		})
+
+		When("the membership client fails", func() {
+			BeforeEach(func() {
+				oops := errors.New("something went wrong")
+				fakeGKEClient.RegisterMembershipReturns(oops)
+			})
+
+			It("should return an error", func() {
+				Expect(reconcilErr).To(HaveOccurred())
+			})
+
+			It("should not create a membership secret", func() {
+				secret := &corev1.Secret{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      controllers.MembershipSecretName,
+					Namespace: controllers.MembershipSecretNamespace,
+				}, secret)
+
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+
+		When("the membership is already registered", func() {
+			BeforeEach(func() {
+				responseBody := ioutil.NopCloser(bytes.NewReader([]byte(`{"value":"Already Exists"}`)))
+				resp := &http.Response{
+					StatusCode: 409,
+					Body:       responseBody,
+				}
+
+				oops := googleapi.CheckResponse(resp)
+
+				fakeGKEClient.RegisterMembershipReturns(oops)
+			})
+
+			It("should not return an error", func() {
+				Expect(reconcilErr).NotTo(HaveOccurred())
+			})
+
+			It("should create a membership secret", func() {
+				secret := &corev1.Secret{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      controllers.MembershipSecretName,
+					Namespace: controllers.MembershipSecretNamespace,
+				}, secret)
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		When("workload identity is not enabled", func() {
+			BeforeEach(func() {
+				cluster := gcpCluster.DeepCopy()
+				cluster.Annotations = map[string]string{}
+
+				Expect(k8sClient.Update(ctx, cluster)).To(Succeed())
+
+			})
+
+			It("should return an error and skip cluster", func() {
+				Expect(reconcilErr).ToNot(HaveOccurred())
+			})
+
+			It("should not create a membership secret", func() {
+				secret := &corev1.Secret{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      controllers.MembershipSecretName,
+					Namespace: controllers.MembershipSecretNamespace,
+				}, secret)
+
+				Expect(err).To(HaveOccurred())
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+
 	})
 })
