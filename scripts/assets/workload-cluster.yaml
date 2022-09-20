@@ -3,7 +3,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: acceptance-workload-cluster
-  namespace: default
+  namespace: giantswarm
 spec:
   clusterNetwork:
     services:
@@ -14,25 +14,25 @@ spec:
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1beta1
     kind: KubeadmControlPlane
-    name: controlplane
-    namespace: default
+    name: acceptance-workload-cluster
+    namespace: giantswarm
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: DockerCluster
     name: acceptance-workload-cluster
-    namespace: default
+    namespace: giantswarm
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: DockerCluster
 metadata:
   name: acceptance-workload-cluster
-  namespace: default
+  namespace: giantswarm
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
 metadata:
-  name: controlplane
-  namespace: default
+  name: acceptance-workload-cluster
+  namespace: giantswarm
 spec:
   replicas: 1
   version: v1.24.0
@@ -40,8 +40,8 @@ spec:
     infrastructureRef:
       apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
       kind: DockerMachineTemplate
-      name: controlplane
-      namespace: default
+      name: acceptance-workload-cluster
+      namespace: giantswarm
   kubeadmConfigSpec:
     clusterConfiguration:
       apiServer:
@@ -64,8 +64,8 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: DockerMachineTemplate
 metadata:
-  name: controlplane
-  namespace: default
+  name: acceptance-workload-cluster
+  namespace: giantswarm
 spec:
   template:
     spec: {}
@@ -74,7 +74,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
   name: worker-md-0
-  namespace: default
+  namespace: giantswarm
 spec:
   clusterName: acceptance-workload-cluster
   replicas: 1
@@ -90,18 +90,18 @@ spec:
           apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
           name: worker
-          namespace: default
+          namespace: giantswarm
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: DockerMachineTemplate
         name: worker
-        namespace: default
+        namespace: giantswarm
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: DockerMachineTemplate
 metadata:
   name: worker
-  namespace: default
+  namespace: giantswarm
 spec:
   template:
     spec: {}
@@ -110,7 +110,7 @@ apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
   name: worker
-  namespace: default
+  namespace: giantswarm
 spec:
   template:
     spec:

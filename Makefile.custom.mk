@@ -2,6 +2,8 @@
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/giantswarm/workload-identity-operator-gcp:dev
 
+NAMESPACE ?= giantswarm
+
 # Substitute colon with space - this creates a list.
 # Word selects the n-th element of the list
 IMAGE_REPO = $(word 1,$(subst :, ,$(IMG)))
@@ -76,28 +78,28 @@ lint-imports: goimports ## Run go vet against code.
 
 .PHONY: create-acceptance-cluster
 create-acceptance-cluster: kind
-	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/ensure-kind-cluster.sh
+	CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/ensure-kind-cluster.sh
 
 .PHONY: deploy-capg-crds
 deploy-capg-crds: kind
-	KUBECONFIG="$(KUBECONFIG)" CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
+	KUBECONFIG="$(KUBECONFIG)" CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/install-crds.sh
 
 .PHONY: create-test-secrets
 create-test-secrets: kind
-	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/create-test-secrets.sh
+	CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/create-test-secrets.sh
 
 .PHONY: deploy-acceptance-cluster
 deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy-crds-on-workload deploy-on-workload-cluster deploy
 
 .PHONY: deploy-crds-on-workload
 deploy-crds-on-workload: kind
-	KUBECONFIG="$(HOME)/.kube/workload-cluster.yaml" CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/install-crds.sh
+	KUBECONFIG="$(HOME)/.kube/workload-cluster.yaml" CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/install-crds.sh
 
 .PHONY: deploy-on-workload-cluster
 deploy-on-workload-cluster: manifests render
 	 helm upgrade --install \
 	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
-		--namespace giantswarm \
+		--namespace $(NAMESPACE) \
 		--set image.tag=$(IMAGE_TAG) \
 		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
 		--wait \
@@ -109,7 +111,7 @@ test-unit: ginkgo generate fmt vet envtest ## Run tests.
 
 .PHONY: cleanup-gkehub
 cleanup-gkehub:
-	gcloud container fleet memberships --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
+	gcloud container fleet memberships --quiet --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
 
 .PHONY: run-acceptance-tests
 run-acceptance-tests:
@@ -157,7 +159,7 @@ render: architect
 .PHONY: deploy
 deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
-		--namespace giantswarm \
+		--namespace $(NAMESPACE) \
 		--set image.tag=$(IMAGE_TAG) \
 		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
 		--wait \
@@ -166,7 +168,7 @@ deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s  specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm uninstall \
-		--namespace giantswarm \
+		--namespace $(NAMESPACE) \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
 

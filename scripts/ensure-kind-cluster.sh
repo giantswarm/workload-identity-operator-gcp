@@ -56,10 +56,10 @@ $KUBECTL -n capi-system rollout status deploy/capi-controller-manager
 $KUBECTL apply -f "${SCRIPT_DIR}/assets/workload-cluster.yaml"
 
 set -x
-is_control_plane_ready=$($KUBECTL get kubeadmcontrolplane -o jsonpath='{.items[*].status.initialized}')
+is_control_plane_ready=$($KUBECTL get kubeadmcontrolplane -n giantswarm -o jsonpath='{.items[*].status.initialized}')
 while [ "$is_control_plane_ready" != "True" ]; do
   echo "Waiting for control plane"
-  is_control_plane_ready=$($KUBECTL get kubeadmcontrolplane.controlplane.cluster.x-k8s.io/controlplane -o jsonpath='{..status.conditions[?(@.type=="Ready")].status}')
+  is_control_plane_ready=$($KUBECTL get kubeadmcontrolplane -n giantswarm -o jsonpath='{..status.conditions[?(@.type=="Ready")].status}')
   sleep 5
 done
 

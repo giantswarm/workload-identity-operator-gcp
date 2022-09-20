@@ -12,24 +12,15 @@ readonly IMG=${IMG:-quay.io/giantswarm/workload-identity-operator-gcp:dev}
 readonly WORKLOAD_CLUSTER="acceptance-workload-cluster"
 readonly SECRET_NAME="$WORKLOAD_CLUSTER-kubeconfig"
 
-clusterctl get kubeconfig $WORKLOAD_CLUSTER >"$HOME/.kube/workload-cluster.yaml"
+clusterctl get kubeconfig -n $NAMESPACE $WORKLOAD_CLUSTER >"$HOME/.kube/workload-cluster.yaml"
 
-kubectl --kubeconfig="$HOME/.kube/workload-cluster.yaml" apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
-kubectl --kubeconfig="$HOME/.kube/workload-cluster.yaml" create namespace giantswarm || true
+KUBECTL="kubectl --kubeconfig=$HOME/.kube/workload-cluster.yaml"
+$KUBECTL create namespace giantswarm || true
 
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "$SECRET_NAME"
-  namespace: "giantswarm"
-type: Opaque
-data:
-  value: $(cat "$HOME/.kube/workload-cluster.yaml" | base64 | tr -d '\n')
-EOF
+$KUBECTL apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
 
 # Point the kubeconfig to the exposed port of the load balancer, rather than the inaccessible container IP.
-sed -i -e "s/server:.*/server: https:\/\/$(docker port ${WORKLOAD_CLUSTER}-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" "$HOME/.kube/workload-cluster.yaml"
+# sed -i -e "s/server:.*/server: https:\/\/$(docker port ${WORKLOAD_CLUSTER}-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" "$HOME/.kube/workload-cluster.yaml"
 
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
@@ -42,6 +33,6 @@ helm upgrade --install \
   --set installCRDs=true \
   --wait
 
-kubectl --kubeconfig="$HOME/.kube/workload-cluster.yaml" apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
+$KUBECTL apply -f "${SCRIPT_DIR}/assets/cluster-issuer.yaml"
 
 "$KIND" load docker-image --name "$WORKLOAD_CLUSTER" "$IMG"

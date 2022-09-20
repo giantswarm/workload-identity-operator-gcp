@@ -11,7 +11,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
@@ -20,13 +20,33 @@ import (
 )
 
 var _ = Describe("Workload Identity", func() {
+	const (
+		timeout  = time.Second * 10
+		interval = time.Millisecond * 250
+	)
+
 	var (
 		ctx context.Context
-		pod *corev1.Pod
+
+		pod            *corev1.Pod
+		serviceAccount *corev1.ServiceAccount
+		gcpCluster     *capg.GCPCluster
+
+		clusterName          string
+		membershipId         string
+		gcpServiceAccount    string
+		workloadIdentityPool string
+		identityProvider     string
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
 
 		clusterName = "acceptance-workload-cluster"
+		gcpServiceAccount = "service-account@email"
+		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
 
-		gcpCluster = &infra.GCPCluster{
+		gcpCluster = &capg.GCPCluster{
 			TypeMeta: metav1.TypeMeta{},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterName,
@@ -35,23 +55,13 @@ var _ = Describe("Workload Identity", func() {
 					controllers.AnnotationWorkloadIdentityEnabled: "true",
 				},
 			},
-			Spec: infra.GCPClusterSpec{
+			Spec: capg.GCPClusterSpec{
 				Project: gcpProject,
 			},
 		}
-		membershipId   = gke.GenerateMembershipId(*gcpCluster)
-		serviceAccount *corev1.ServiceAccount
 
-		gcpServiceAccount    = "service-account@email"
-		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
-		identityProvider     = fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
-
-		timeout  = time.Second * 10
-		interval = time.Millisecond * 250
-	)
-
-	BeforeEach(func() {
-		ctx = context.Background()
+		membershipId = gke.GenerateMembershipId(*gcpCluster)
+		identityProvider = fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
 
 		serviceAccount = &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
@@ -173,7 +183,7 @@ var _ = Describe("Workload Identity", func() {
 	})
 })
 
-func ensureClusterCRExists(gcpCluster *infra.GCPCluster) error {
+func ensureClusterCRExists(gcpCluster *capg.GCPCluster) error {
 	ctx := context.Background()
 
 	err := k8sClient.Get(ctx, client.ObjectKey{

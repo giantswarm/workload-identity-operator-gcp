@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -143,14 +144,18 @@ func (r *GCPClusterReconciler) getWorkloadClusterConfig(ctx context.Context, clu
 	}, secret)
 	if err != nil {
 		r.Logger.Error(err, "could not get cluster secret")
-		return &rest.Config{}, err
+		return nil, err
 	}
 
-	data := secret.Data[KeyWorkloadClusterConfig]
+	data, ok := secret.Data[KeyWorkloadClusterConfig]
+	if !ok {
+		err = errors.New("cluster kubeconfig data is missing")
+		return nil, err
+	}
 
 	config, err := clientcmd.NewClientConfigFromBytes(data)
 	if err != nil {
-		return &rest.Config{}, err
+		return nil, err
 	}
 
 	return config.ClientConfig()
@@ -207,18 +212,6 @@ func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, c
 	}
 
 	return secret
-}
-
-func hasOneNodeReady(nodes *corev1.NodeList) bool {
-	for _, node := range nodes.Items {
-		for _, condition := range node.Status.Conditions {
-			if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func GenerateMembershipSecretFinalizer(value string) string {
