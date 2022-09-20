@@ -122,9 +122,10 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			)
 
 			clusterReconciler = &controllers.GCPClusterReconciler{
-				Client:                  k8sClient,
-				Logger:                  logf.Log,
-				GKEMembershipReconciler: gkeMembershipReconciler,
+				Client:                    k8sClient,
+				Logger:                    logf.Log,
+				MembershipSecretNamespace: namespace,
+				GKEMembershipReconciler:   gkeMembershipReconciler,
 			}
 		})
 
@@ -138,19 +139,6 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			result, reconcilErr = clusterReconciler.Reconcile(ctx, req)
 		})
 
-		AfterEach(func() {
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      controllers.MembershipSecretName,
-					Namespace: controllers.MembershipSecretNamespace,
-				},
-			}
-			err := k8sClient.Delete(ctx, secret)
-			if !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-		})
-
 		It("reconciles successfully", func() {
 			Expect(reconcilErr).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
@@ -159,14 +147,12 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 		It("creates a gke membership secret with the correct credentials", func() {
 			secret := &corev1.Secret{}
 			err := k8sClient.Get(ctx, types.NamespacedName{
-				Namespace: controllers.MembershipSecretNamespace,
 				Name:      controllers.MembershipSecretName,
+				Namespace: namespace,
 			}, secret)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(secret).ToNot(BeNil())
-			Expect(secret.Name).To(Equal(controllers.MembershipSecretName))
-			Expect(secret.Namespace).To(Equal(controllers.MembershipSecretNamespace))
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnoationMembershipSecretCreatedBy, clusterName))
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnotationSecretManagedBy, controllers.SecretManagedBy))
 			Expect(controllerutil.ContainsFinalizer(secret, controllers.GenerateMembershipSecretFinalizer(controllers.SecretManagedBy)))
@@ -256,7 +242,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 				secret := &corev1.Secret{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      controllers.MembershipSecretName,
-					Namespace: controllers.MembershipSecretNamespace,
+					Namespace: namespace,
 				}, secret)
 
 				Expect(err).To(HaveOccurred())
@@ -285,7 +271,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 				secret := &corev1.Secret{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      controllers.MembershipSecretName,
-					Namespace: controllers.MembershipSecretNamespace,
+					Namespace: namespace,
 				}, secret)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -298,7 +284,6 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 				cluster.Annotations = map[string]string{}
 
 				Expect(k8sClient.Update(ctx, cluster)).To(Succeed())
-
 			})
 
 			It("should return an error and skip cluster", func() {
@@ -309,13 +294,12 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 				secret := &corev1.Secret{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      controllers.MembershipSecretName,
-					Namespace: controllers.MembershipSecretNamespace,
+					Namespace: namespace,
 				}, secret)
 
 				Expect(err).To(HaveOccurred())
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
-
 	})
 })

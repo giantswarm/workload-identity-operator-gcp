@@ -130,10 +130,9 @@ func GetMembershipFromSecret(ctx context.Context, c client.Client, logger logr.L
 	secret := &corev1.Secret{}
 
 	err := c.Get(ctx, client.ObjectKey{
-		Namespace: MembershipSecretNamespace,
+		Namespace: DefaultMembershipSecretNamespace,
 		Name:      MembershipSecretName,
 	}, secret)
-
 	if err != nil {
 		logger.Error(err, "failed to get membership secret")
 		return nil, err

@@ -99,11 +99,11 @@ func ensureNamespaceExists(ctx context.Context) error {
 	namespaceObj := &corev1.Namespace{}
 
 	err := k8sClient.Get(ctx, client.ObjectKey{
-		Name: controllers.MembershipSecretNamespace,
+		Name: controllers.DefaultMembershipSecretNamespace,
 	}, namespaceObj)
 
 	if k8serrors.IsNotFound(err) {
-		namespaceObj.Name = controllers.MembershipSecretNamespace
+		namespaceObj.Name = controllers.DefaultMembershipSecretNamespace
 		err = k8sClient.Create(context.Background(), namespaceObj)
 
 		return err

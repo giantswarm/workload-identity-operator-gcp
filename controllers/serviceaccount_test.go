@@ -163,7 +163,6 @@ var _ = Describe("Service Account Reconcilation", func() {
 			})
 		})
 	})
-
 })
 
 func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
@@ -171,7 +170,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 
 	err := k8sClient.Get(ctx, client.ObjectKey{
 		Name:      controllers.MembershipSecretName,
-		Namespace: controllers.MembershipSecretNamespace,
+		Namespace: controllers.DefaultMembershipSecretNamespace,
 	}, membershipSecret)
 
 	if k8serrors.IsNotFound(err) {
@@ -185,7 +184,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 		membershipSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      controllers.MembershipSecretName,
-				Namespace: controllers.MembershipSecretNamespace,
+				Namespace: controllers.DefaultMembershipSecretNamespace,
 				Annotations: map[string]string{
 					controllers.AnnoationMembershipSecretCreatedBy: gcpCluster.Name,
 					controllers.AnnotationSecretManagedBy:          controllers.SecretManagedBy,

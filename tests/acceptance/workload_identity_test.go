@@ -96,7 +96,7 @@ var _ = Describe("Workload Identity", func() {
 			},
 		}
 
-		Expect(EnsureClusterCRExists(gcpCluster)).To(Succeed())
+		Expect(ensureClusterCRExists(gcpCluster)).To(Succeed())
 
 		patch := []byte(`{"status":{"ready":true}}`)
 
@@ -109,7 +109,7 @@ var _ = Describe("Workload Identity", func() {
 		Eventually(func() error {
 			err := workloadClient.Get(ctx, client.ObjectKey{
 				Name:      controllers.MembershipSecretName,
-				Namespace: controllers.MembershipSecretNamespace,
+				Namespace: controllers.DefaultMembershipSecretNamespace,
 			}, membershipSecret)
 
 			return err
@@ -173,7 +173,7 @@ var _ = Describe("Workload Identity", func() {
 	})
 })
 
-func EnsureClusterCRExists(gcpCluster *infra.GCPCluster) error {
+func ensureClusterCRExists(gcpCluster *infra.GCPCluster) error {
 	ctx := context.Background()
 
 	err := k8sClient.Get(ctx, client.ObjectKey{

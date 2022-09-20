@@ -30,7 +30,7 @@ const (
 	AnnoationMembershipSecretCreatedBy = "app.kubernetes.io/created-by" //#nosec G101
 	SuffixMembershipName               = "workload-identity"
 	MembershipSecretName               = "workload-identity-operator-gcp-membership"
-	MembershipSecretNamespace          = "giantswarm"
+	DefaultMembershipSecretNamespace   = "giantswarm"
 	KeyWorkloadClusterConfig           = "value"
 )
 
@@ -39,7 +39,8 @@ type GCPClusterReconciler struct {
 	client.Client
 	Logger logr.Logger
 
-	GKEMembershipReconciler *gke.GKEMembershipReconciler
+	MembershipSecretNamespace string
+	GKEMembershipReconciler   *gke.GKEMembershipReconciler
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=gcpclusters,verbs=get;list;watch;create;update;patch;delete
@@ -187,7 +188,7 @@ func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, c
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MembershipSecretName,
-			Namespace: MembershipSecretNamespace,
+			Namespace: r.MembershipSecretNamespace,
 			Annotations: map[string]string{
 				AnnoationMembershipSecretCreatedBy: cluster.Name,
 				AnnotationSecretManagedBy:          SecretManagedBy,
