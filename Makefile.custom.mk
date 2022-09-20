@@ -111,7 +111,7 @@ test-unit: ginkgo generate fmt vet envtest ## Run tests.
 
 .PHONY: cleanup-gkehub
 cleanup-gkehub:
-	gcloud container fleet memberships --quiet --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
+	gcloud container hub memberships --quiet --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
 
 .PHONY: run-acceptance-tests
 run-acceptance-tests:
