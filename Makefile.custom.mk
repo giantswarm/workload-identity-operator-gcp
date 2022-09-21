@@ -110,8 +110,13 @@ test-unit: ginkgo generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites --skip-package=tests ./...
 
 .PHONY: cleanup-gkehub
-cleanup-gkehub:
+cleanup-gkehub: auth-gkehub
 	gcloud container hub memberships --quiet --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
+
+.PHONY: auth-gkehub
+auth-gkehub:
+	@echo -n "$(B64_GOOGLE_APPLICATION_CREDENTIALS)" | base64 -d > "$(HOME)/gcp-token.json" && \
+		gcloud auth activate-service-account --key-file="$(HOME)/gcp-token.json"
 
 .PHONY: run-acceptance-tests
 run-acceptance-tests:
