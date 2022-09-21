@@ -2,13 +2,10 @@ package controllers_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"go/build"
-	"math/big"
 	"net/url"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -25,7 +22,6 @@ import (
 	kcapi "k8s.io/client-go/tools/clientcmd/api"
 	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	capi "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -76,39 +72,15 @@ var _ = BeforeSuite(func() {
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	randomNumber, err := getRandomPort()
-	Expect(err).NotTo(HaveOccurred(), "failed to generate random port number")
-
+	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	metricsPort := fmt.Sprintf(":%s", randomNumber)
-
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsPort,
-	})
-	Expect(err).NotTo(HaveOccurred(), "failed to create manager")
-
-	serviceAccountReconciler := &controllers.ServiceAccountReconciler{
-		Client: mgr.GetClient(),
-		Logger: ctrl.Log.WithName("service-account-reconciler"),
-		Scheme: mgr.GetScheme(),
-	}
-
-	err = serviceAccountReconciler.SetupWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel = context.WithCancel(context.Background())
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
-
-	go func() {
-		err := mgr.Start(ctx)
-		Expect(err).NotTo(HaveOccurred(), "failed to start manager")
-	}()
 })
 
 var _ = AfterSuite(func() {
@@ -151,20 +123,6 @@ func ensureNamespaceExists(ctx context.Context) error {
 	}
 
 	return err
-}
-
-func getRandomPort() (string, error) {
-	var min int64 = 30000
-	var max int64 = 33000
-
-	randomNumber, err := rand.Int(rand.Reader, big.NewInt(max-min))
-	if err != nil {
-		return "", err
-	}
-	port := randomNumber.Int64() + min
-	portString := strconv.FormatInt(port, 10)
-
-	return portString, nil
 }
 
 func KubeConfigFromREST(cfg *rest.Config) ([]byte, error) {
