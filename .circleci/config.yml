@@ -22,6 +22,9 @@ jobs:
           helm-version: v3.8.2
           kubernetes-version: v1.21.1
       - run:
+          name: "Setup test tools"
+          command: bash scripts/setup-test-tools.sh
+      - run:
           name: "Run acceptance tests"
           command: CGO_ENABLED=0 make test-acceptance
 

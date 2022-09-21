@@ -2,6 +2,8 @@
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/giantswarm/workload-identity-operator-gcp:dev
 
+NAMESPACE ?= giantswarm
+
 # Substitute colon with space - this creates a list.
 # Word selects the n-th element of the list
 IMAGE_REPO = $(word 1,$(subst :, ,$(IMG)))
@@ -42,6 +44,18 @@ all: build
 
 ##@ Development
 
+.PHONY: ensure-gcp-envs
+ensure-gcp-envs:
+ifndef GCP_PROJECT_ID
+	$(error GCP_PROJECT_ID is undefined)
+endif
+
+.PHONY: ensure-deploy-envs
+ensure-deploy-envs: ensure-gcp-envs
+ifndef B64_GOOGLE_APPLICATION_CREDENTIALS
+	$(error B64_GOOGLE_APPLICATION_CREDENTIALS is undefined)
+endif
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -64,22 +78,59 @@ lint-imports: goimports ## Run go vet against code.
 
 .PHONY: create-acceptance-cluster
 create-acceptance-cluster: kind
-	CLUSTER=$(CLUSTER) IMG=$(IMG) ./scripts/ensure-kind-cluster.sh
+	CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/ensure-kind-cluster.sh
+
+.PHONY: deploy-capg-crds
+deploy-capg-crds: kind
+	KUBECONFIG="$(KUBECONFIG)" CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/install-crds.sh
+
+.PHONY: create-test-secrets
+create-test-secrets: kind
+	CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/create-test-secrets.sh
 
 .PHONY: deploy-acceptance-cluster
-deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy
+deploy-acceptance-cluster: docker-build create-acceptance-cluster deploy-capg-crds create-test-secrets deploy-crds-on-workload deploy-on-workload-cluster deploy
+
+.PHONY: deploy-crds-on-workload
+deploy-crds-on-workload: kind
+	KUBECONFIG="$(HOME)/.kube/workload-cluster.yaml" CLUSTER=$(CLUSTER) IMG=$(IMG) NAMESPACE=$(NAMESPACE) ./scripts/install-crds.sh
+
+.PHONY: deploy-on-workload-cluster
+deploy-on-workload-cluster: manifests render
+	 helm upgrade --install \
+	  --kubeconfig="$(HOME)/.kube/workload-cluster.yaml" \
+		--namespace $(NAMESPACE) \
+		--set image.tag=$(IMAGE_TAG) \
+		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
+		--wait \
+		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
 .PHONY: test-unit
 test-unit: ginkgo generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites --skip-package=tests ./...
 
+.PHONY: cleanup-gkehub
+cleanup-gkehub: auth-gkehub
+	gcloud container hub memberships --quiet --project $(GCP_PROJECT_ID) delete acceptance-workload-cluster-workload-identity
+
+.PHONY: auth-gkehub
+auth-gkehub:
+	@echo -n "$(B64_GOOGLE_APPLICATION_CREDENTIALS)" | base64 -d > "$(HOME)/gcp-token.json" && \
+		gcloud auth activate-service-account --key-file="$(HOME)/gcp-token.json"
+
+.PHONY: run-acceptance-tests
+run-acceptance-tests:
+	$(eval GOOGLE_APPLICATION_CREDENTIALS=$(shell ${PWD}/scripts/create-gcp-credentials-file.sh))
+	GOOGLE_APPLICATION_CREDENTIALS=$(GOOGLE_APPLICATION_CREDENTIALS) \
+	KUBECONFIG="$(KUBECONFIG)" \
+	$(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
+
 .PHONY: test-acceptance
 test-acceptance: KUBECONFIG=$(HOME)/.kube/$(CLUSTER).yml
-test-acceptance: ginkgo deploy-acceptance-cluster ## Run acceptance testst
-	KUBECONFIG="$(KUBECONFIG)" $(GINKGO) -p --nodes 8 -r -randomize-all --randomize-suites tests/acceptance
+test-acceptance: ensure-deploy-envs ginkgo deploy-acceptance-cluster run-acceptance-tests cleanup-gkehub ## Run acceptance testst
 
 .PHONY: test-all
-test-all: lint lint-imports test-unit test-integration test-acceptance ## Run all tests and litner
+test-all: lint lint-imports test-unit test-acceptance ## Run all tests and litner
 ##@ Build
 
 .PHONY: build
@@ -113,15 +164,16 @@ render: architect
 .PHONY: deploy
 deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm upgrade --install \
-		--namespace giantswarm \
+		--namespace $(NAMESPACE) \
 		--set image.tag=$(IMAGE_TAG) \
+		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s  specified in ~/.kube/config.
 	KUBECONFIG="$(KUBECONFIG)" helm uninstall \
-		--namespace giantswarm \
+		--namespace $(NAMESPACE) \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 
 
