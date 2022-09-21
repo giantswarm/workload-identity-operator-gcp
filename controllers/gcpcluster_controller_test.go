@@ -157,7 +157,7 @@ var _ = Describe("GCPCluster Reconcilation", func() {
 			Expect(secret).ToNot(BeNil())
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnoationMembershipSecretCreatedBy, clusterName))
 			Expect(secret.Annotations).Should(HaveKeyWithValue(controllers.AnnotationSecretManagedBy, controllers.SecretManagedBy))
-			Expect(controllerutil.ContainsFinalizer(secret, controllers.GenerateMembershipSecretFinalizer(controllers.SecretManagedBy)))
+			Expect(controllerutil.ContainsFinalizer(secret, controllers.FinalizerMembership))
 
 			data := secret.Data[controllers.SecretKeyGoogleApplicationCredentials]
 

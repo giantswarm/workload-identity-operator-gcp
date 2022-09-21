@@ -29,6 +29,7 @@ import (
 const (
 	AnnotationWorkloadIdentityEnabled  = "giantswarm.io/workload-identity-enabled"
 	AnnoationMembershipSecretCreatedBy = "app.kubernetes.io/created-by" //#nosec G101
+	FinalizerMembership                = "workload-identity-operator-gcp.giantswarm.io/finalizer"
 	SuffixMembershipName               = "workload-identity"
 	MembershipSecretName               = "workload-identity-operator-gcp-membership"
 	DefaultMembershipSecretNamespace   = "giantswarm"
@@ -204,18 +205,13 @@ func (r *GCPClusterReconciler) generateMembershipSecret(membershipJson []byte, c
 		},
 	}
 
-	finalizer := GenerateMembershipSecretFinalizer(SecretManagedBy)
-	ok := controllerutil.AddFinalizer(secret, finalizer)
+	ok := controllerutil.AddFinalizer(secret, FinalizerMembership)
 	if !ok {
 		message := fmt.Sprintf("failed to add finalizer for %s membership secret", cluster.Name)
 		r.Logger.Info(message)
 	}
 
 	return secret
-}
-
-func GenerateMembershipSecretFinalizer(value string) string {
-	return fmt.Sprintf("%s/finalizer", value)
 }
 
 // SetupWithManager sets up the controller with the Manager.
