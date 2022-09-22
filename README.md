@@ -38,7 +38,7 @@ The workload identity pool has the following format:
   PROJECT_ID.svc.id.goog
 ```
 
-#### 1. Register your cluster
+##### 1. Register your cluster
 ```
 export CLUSTER_NAME="<insert-cluster-name-here>" 
 export MEMBERSHIP_NAME="$CLUSTER_NAME-workload-identity"
@@ -54,6 +54,35 @@ gcloud container hub memberships register "$MEMBERSHIP_NAME" \
     --enable-workload-identity \
     --has-private-issuer
 ``` 
+
+##### 2. [Create a GCP service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#creating) or 
+
+```
+export GOOGLE_SA_NAME="<insert-gcp-service-account-name-here>"
+gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAME"
+```
+
+##### 3. Ensure that your GCP service account has the roles needed. 
+
+```
+  export GOOGLE_SA_ID="$GOOGLE_SA_NAME@$GCP_PROJECT_NAME.iam.gserviceaccount.com"
+
+  # this policy binding associates the GCP service account with a Kubernetes service account
+  gcloud iam service-accounts add-iam-policy-binding \
+    --project "$GCP_PROJECT_NAME" \
+    "$GOOGLE_SA_ID" \
+    --role=roles/container.admin \
+    --role=roles/gkehub.admin \
+    --member=user:my-user@example.com
+```
+
+##### 4. Add the credentials needed for deloyment
+
+You will need to create a `json` key for the gcp service account. Once downloaded save its contents as a base64 encoded value.
+
+```
+export B64_GOOGLE_APPLICATION_CREDENTIALS=$( cat /path/to/gcp-credentials.json | base64 | tr -d '\n' )
+```
 
 ### Steps on workload clusters
 These are steps that are meant to be taken on the workload cluster before the configuration steps
@@ -84,16 +113,7 @@ export GOOGLE_SA_NAME="<insert-gcp-service-account-name-here>"
 gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAME"
 ```
 
-##### 3 Grab important information that you'll need. 
-These are the following:
-  * Your workload identity pool id
-  * Your identity provider 
-The above can be obtained from the output of the command below
-```
-gcloud container hub memberships describe $MEMBERSHIP_NAME
-```
-
-##### 4 Ensure that your GCP service account has the roles that you need. 
+##### 3 Ensure that your GCP service account has the roles that you need. 
 
 ```
   export GOOGLE_SA_ID="$GOOGLE_SA_NAME@$GCP_PROJECT_NAME.iam.gserviceaccount.com"
@@ -106,7 +126,7 @@ gcloud container hub memberships describe $MEMBERSHIP_NAME
     --member="serviceAccount:$WORKLOAD_ID_POOL[$KUBE_NAMESPACE/$KUBE_SA_NAME]"
 ```
 
-##### 5 Add computer viewer permissions
+##### 4 Add computer viewer permissions
 ```
   # Add necessary permissions to the GCP Service Account
   gcloud projects add-iam-policy-binding "$GCP_PROJECT_NAME" \
@@ -114,12 +134,10 @@ gcloud container hub memberships describe $MEMBERSHIP_NAME
     --member="serviceAccount:$GOOGLE_SA_ID"
 ```
 
-##### 6 Annotate kubernetes service account
+##### 5 Annotate kubernetes service account
   ```
   kubectl annotate sa $KUBE_SA_NAME \ 
   giantswarm.io/gcp-service-account=$GOOGLE_SA_ID \
-  giantswarm.io/gcp-workload-identity=$WORKLOAD_ID_POOL \
-  giantswarm.io/gcp-identity-provider=$IDENTITY_PROVIDER
   ```
 
 ### The GCP Cluster Reconciler
