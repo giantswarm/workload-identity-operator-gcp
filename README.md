@@ -17,7 +17,7 @@ This operator is set up to work on a multi-cluster setup. What is a multi-cluste
 
 > Multi-cluster Kubernetes is a Kubernetes deployment method that consists of two or more clusters.
 
-It operates on the notion of management and workload clusters. Where a management cluster manages the lifecycle of a workload cluster and vice versa.
+It operates on the notion of management and workload clusters. Where a management cluster manages the lifecycle of a workload cluster and workload clusters have their lifecycle managed by management clusters.
 
 
 ## Prerequisites

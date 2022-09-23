@@ -8,13 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+
 - Updated documentation
 - Increase container memory resource requests and limits
 
 ## [0.4.0] - 2022-09-21
 
-- GCP cluster reconciler that creates a `secret` with the details of the workload identity membership on a workload cluster
+### Added
 
+- GCP cluster reconciler that creates a `secret` with the details of the workload identity membership on a workload cluster
 
 ## [0.3.2] - 2022-08-23
 
