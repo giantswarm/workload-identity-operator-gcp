@@ -8,43 +8,73 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
 var _ = Describe("Workload Identity", func() {
+	const (
+		timeout  = time.Second * 10
+		interval = time.Millisecond * 250
+	)
+
 	var (
 		ctx context.Context
-		pod *corev1.Pod
 
+		pod            *corev1.Pod
 		serviceAccount *corev1.ServiceAccount
+		gcpCluster     *capg.GCPCluster
 
-		gcpServiceAccount    = "service-account@email"
-		workloadIdentityPool = "workload-identity-pool-id"
-		identityProvider     = "https://gkehub.googleapis.com/projects/testing-1234/locations/global/memberships/cluster"
-
-		timeout  = time.Second * 5
-		interval = time.Millisecond * 250
+		clusterName          string
+		membershipId         string
+		gcpServiceAccount    string
+		workloadIdentityPool string
+		identityProvider     string
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+
+		clusterName = "acceptance-workload-cluster"
+		gcpServiceAccount = "service-account@email"
+		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
+
+		gcpCluster = &capg.GCPCluster{
+			TypeMeta: metav1.TypeMeta{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterName,
+				Namespace: "giantswarm",
+				Annotations: map[string]string{
+					controllers.AnnotationWorkloadIdentityEnabled: "true",
+				},
+			},
+			Spec: capg.GCPClusterSpec{
+				Project: gcpProject,
+			},
+		}
+
+		membershipId = gke.GenerateMembershipId(*gcpCluster)
+		identityProvider = fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
+
 		serviceAccount = &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "the-service-account",
 				Namespace: namespace,
 				Annotations: map[string]string{
-					webhook.AnnotationGCPServiceAccount:      gcpServiceAccount,
+					controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
 					webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
 					webhook.AnnotationGCPIdentityProvider:    identityProvider,
 				},
 			},
 		}
-		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
+		Expect(workloadClient.Create(ctx, serviceAccount)).To(Succeed())
 
 		pod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -75,14 +105,33 @@ var _ = Describe("Workload Identity", func() {
 				},
 			},
 		}
+
+		Expect(ensureClusterCRExists(gcpCluster)).To(Succeed())
+
+		patch := []byte(`{"status":{"ready":true}}`)
+
+		Expect(k8sClient.Status().Patch(ctx, gcpCluster, client.RawPatch(types.MergePatchType, patch))).To(Succeed())
+	})
+
+	JustBeforeEach(func() {
+		membershipSecret := &corev1.Secret{}
+
+		Eventually(func() error {
+			err := workloadClient.Get(ctx, client.ObjectKey{
+				Name:      controllers.MembershipSecretName,
+				Namespace: controllers.DefaultMembershipSecretNamespace,
+			}, membershipSecret)
+
+			return err
+		}, "120s").Should(Succeed())
 	})
 
 	It("Creates the secret with the credentials needed", func() {
 		secret := &corev1.Secret{}
-		secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, serviceaccount.SecretNameSuffix)
+		secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, controllers.SecretNameSuffix)
 
 		Eventually(func() error {
-			err := k8sClient.Get(ctx, client.ObjectKey{
+			err := workloadClient.Get(ctx, client.ObjectKey{
 				Namespace: namespace,
 				Name:      secretName,
 			}, secret)
@@ -106,13 +155,13 @@ var _ = Describe("Workload Identity", func() {
 	       "file": "%[4]s/%[5]s"
 	     }
 	   }`, workloadIdentityPool, identityProvider, gcpServiceAccount,
-			webhook.VolumeMountWorkloadIdentityPath, webhook.ServiceAccountTokenPath)
+			controllers.VolumeMountWorkloadIdentityPath, controllers.ServiceAccountTokenPath)
 
 		Expect(data).Should(MatchJSON(expectedData))
 	})
 
 	It("Injects the credentials file in the pod", func() {
-		Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+		Expect(workloadClient.Create(ctx, pod)).To(Succeed())
 
 		getPodStatus := func() bool {
 			podNamespacedName := types.NamespacedName{
@@ -120,7 +169,7 @@ var _ = Describe("Workload Identity", func() {
 				Namespace: namespace,
 			}
 			workload := &corev1.Pod{}
-			Expect(k8sClient.Get(ctx, podNamespacedName, workload)).To(Succeed())
+			Expect(workloadClient.Get(ctx, podNamespacedName, workload)).To(Succeed())
 
 			if len(workload.Status.ContainerStatuses) == 0 {
 				return false
@@ -129,7 +178,26 @@ var _ = Describe("Workload Identity", func() {
 			return workload.Status.ContainerStatuses[0].Ready
 		}
 
-		Eventually(getPodStatus, "60s").Should(BeTrue(), "pod container failed to become ready")
+		Eventually(getPodStatus, "120s").Should(BeTrue(), "pod container failed to become ready")
 		Consistently(getPodStatus, "5s").Should(BeTrue(), "pod container errored")
 	})
 })
+
+func ensureClusterCRExists(gcpCluster *capg.GCPCluster) error {
+	ctx := context.Background()
+
+	err := k8sClient.Get(ctx, client.ObjectKey{
+		Name:      gcpCluster.Name,
+		Namespace: gcpCluster.Namespace,
+	}, gcpCluster)
+
+	if k8serrors.IsNotFound(err) {
+		err = k8sClient.Create(context.Background(), gcpCluster)
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
+
+	return err
+}

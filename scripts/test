@@ -13,7 +13,7 @@ if ! egrep -q "tests" <(echo "$@"); then
 
   # Export the KUBEBUILDER_ASSETS env var
   eval "$(setup-envtest use --installed-only --print env)"
-  extra_args+=("--skipPackage=tests")
+  extra_args+=("--skip-package=tests")
 fi
 
-ginkgo -p --nodes 8 -r -randomizeAllSpecs --randomizeSuites "${extra_args[@]}" $@
+ginkgo -p --nodes 8 -r -randomize-all --randomize-suites "${extra_args[@]}" $@

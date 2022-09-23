@@ -17,24 +17,30 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	capg "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
+	kubeadm "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -46,6 +52,8 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	utilruntime.Must(capg.AddToScheme(scheme))
+	utilruntime.Must(kubeadm.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -84,12 +92,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&serviceaccount.ServiceAccountReconciler{
+	if err = (&controllers.ServiceAccountReconciler{
 		Client: mgr.GetClient(),
 		Logger: ctrl.Log.WithName("service-account-reconciler"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceAccount")
+		os.Exit(1)
+	}
+
+	ctx := context.Background()
+	gkehubClient, err := gkehub.NewGkeHubMembershipRESTClient(ctx)
+	if err != nil {
+		setupLog.Error(err, "failed to create gke hub membership client")
+		os.Exit(1)
+	}
+
+	defer gkehubClient.Close()
+
+	gkeClient := gke.NewClient(gkehubClient)
+	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
+		gkeClient,
+		ctrl.Log.WithName("gke-membership-reconciler"),
+	)
+
+	if err = (&controllers.GCPClusterReconciler{
+		Client:                    mgr.GetClient(),
+		Logger:                    ctrl.Log.WithName("gcp-cluster-reconciler"),
+		MembershipSecretNamespace: controllers.DefaultMembershipSecretNamespace,
+		GKEMembershipReconciler:   gkeMembershipReconciler,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GCPCluster")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

@@ -15,12 +15,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 )
 
 const (
 	EnvKeyGoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS" //#nosec G101
 
-	AnnotationGCPServiceAccount      = "giantswarm.io/gcp-service-account"
 	AnnotationWorkloadIdentityPoolID = "giantswarm.io/gcp-workload-identity-pool-id"
 	AnnotationGCPIdentityProvider    = "giantswarm.io/gcp-identity-provider"
 
@@ -28,12 +29,9 @@ const (
 
 	VolumeWorkloadIdentityName        = "workload-identity-credentials"
 	VolumeWorkloadIdentityDefaultMode = 420
-	VolumeMountWorkloadIdentityPath   = "/var/run/secrets/workload-identity"
 
-	TokenExpirationSeconds                = 7200
-	ServiceAccountTokenPath               = "token"
-	GoogleApplicationCredentialsJSONPath  = "google-application-credentials.json"
-	SecretKeyGoogleApplicationCredentials = "config"
+	TokenExpirationSeconds               = 7200
+	GoogleApplicationCredentialsJSONPath = "google-application-credentials.json"
 )
 
 type CredentialsInjector struct {
@@ -73,24 +71,26 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		return admission.Denied(message)
 	}
 
-	serviceAccount, err := w.getServiceAccount(ctx, pod.Spec.ServiceAccountName, req.Namespace)
+	_, err = w.getServiceAccount(ctx, pod)
 	if k8serrors.IsNotFound(err) {
 		message := "Pod ServiceAccount does not exist"
 		logger.Error(err, message)
 		return admission.Denied(message)
 	}
+
 	if err != nil {
-		logger.Error(err, "failed to get Pod Service Account")
+		logger.Error(err, "failed to get membership from secret")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	secretName := fmt.Sprintf("%s-%s", pod.Spec.ServiceAccountName, "google-application-credentials")
-	workloadIdentityPool, present := serviceAccount.Annotations[AnnotationWorkloadIdentityPoolID]
-	if !present {
-		message := fmt.Sprintf("ServiceAccount misssing %q annotation", AnnotationWorkloadIdentityPoolID)
-		logger.Info(message)
-		return admission.Denied(message)
+	membership, err := controllers.GetMembershipFromSecret(ctx, w.client, logger)
+	if err != nil {
+		logger.Error(err, "failed to get membership from secret")
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
+
+	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
 
 	mutatedPod := pod.DeepCopy()
 	injectVolume(mutatedPod, workloadIdentityPool, secretName)
@@ -104,11 +104,11 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 	return getPatchedResponse(req, mutatedPod)
 }
 
-func (w *CredentialsInjector) getServiceAccount(ctx context.Context, name, namespace string) (*corev1.ServiceAccount, error) {
+func (w *CredentialsInjector) getServiceAccount(ctx context.Context, pod *corev1.Pod) (*corev1.ServiceAccount, error) {
 	serviceAccount := &corev1.ServiceAccount{}
 	namespacedName := types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
+		Name:      pod.Spec.ServiceAccountName,
+		Namespace: pod.Namespace,
 	}
 
 	err := w.client.Get(ctx, namespacedName, serviceAccount)
@@ -134,7 +134,7 @@ func getPatchedResponse(req admission.Request, mutatedPod *corev1.Pod) admission
 }
 
 func injectEnvVar(container *corev1.Container) {
-	credentialsPath := fmt.Sprintf("%s/%s", VolumeMountWorkloadIdentityPath, GoogleApplicationCredentialsJSONPath)
+	credentialsPath := fmt.Sprintf("%s/%s", controllers.VolumeMountWorkloadIdentityPath, GoogleApplicationCredentialsJSONPath)
 
 	credentialsEnvVar := corev1.EnvVar{
 		Name:  EnvKeyGoogleApplicationCredentials,
@@ -146,7 +146,7 @@ func injectEnvVar(container *corev1.Container) {
 func injectVolumeMount(container *corev1.Container) {
 	credentialsMount := corev1.VolumeMount{
 		Name:      VolumeWorkloadIdentityName,
-		MountPath: VolumeMountWorkloadIdentityPath,
+		MountPath: controllers.VolumeMountWorkloadIdentityPath,
 		ReadOnly:  true,
 	}
 	container.VolumeMounts = append(container.VolumeMounts, credentialsMount)
@@ -161,7 +161,7 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, secretName string) {
 				Sources: []corev1.VolumeProjection{
 					{
 						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-							Path:     ServiceAccountTokenPath,
+							Path:     controllers.ServiceAccountTokenPath,
 							Audience: workloadIdentityPool,
 
 							// According to documentation, the service account token will be
@@ -178,7 +178,7 @@ func injectVolume(pod *corev1.Pod, workloadIdentityPool, secretName string) {
 							},
 							Items: []corev1.KeyToPath{
 								{
-									Key:  SecretKeyGoogleApplicationCredentials,
+									Key:  controllers.SecretKeyGoogleApplicationCredentials,
 									Path: GoogleApplicationCredentialsJSONPath,
 								},
 							},

@@ -1,3 +1,5 @@
+gcp:
+  credentials: credentials
 project:
   branch: "[[ .Branch ]]"
   commit: "[[ .SHA ]]"

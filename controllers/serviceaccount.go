@@ -1,10 +1,13 @@
-package serviceaccount
+package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,17 +17,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
 const (
-	AnnotationSecretMetadata  = "kubernetes.io/service-account.name" //#nosec G101
-	AnnotationSecretManagedBy = "app.kubernetes.io/managed-by"       //#nosec  G101
+	AnnotationSecretMetadata    = "kubernetes.io/service-account.name" //#nosec G101
+	AnnotationSecretManagedBy   = "app.kubernetes.io/managed-by"       //#nosec  G101
+	AnnotationGCPServiceAccount = "giantswarm.io/gcp-service-account"
 
 	SecretManagedBy = "workload-identity-operator-gcp" //#nosec G101
 
-	SecretNameSuffix = "google-application-credentials" //#nosec G101
+	SecretNameSuffix                      = "google-application-credentials" //#nosec G101
+	SecretKeyGoogleApplicationCredentials = "config"
+
+	ServiceAccountTokenPath         = "token"
+	VolumeMountWorkloadIdentityPath = "/var/run/secrets/workload-identity"
 )
 
 type ServiceAccountReconciler struct {
@@ -48,25 +54,32 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, nil
 	}
 
-	gcpServiceAccount, isGCPAnnotated := serviceAccount.Annotations[webhook.AnnotationGCPServiceAccount]
-	workloadIdentityPool, hasWorkloadIdentity := serviceAccount.Annotations[webhook.AnnotationWorkloadIdentityPoolID]
-	identityProvider, hasIdentityProvider := serviceAccount.Annotations[webhook.AnnotationGCPIdentityProvider]
+	gcpServiceAccount, isGCPAnnotated := serviceAccount.Annotations[AnnotationGCPServiceAccount]
 
 	if !isGCPAnnotated {
-		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPServiceAccount)
+		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", AnnotationGCPServiceAccount)
 		logger.Info(message)
 		return reconcile.Result{}, err
 	}
 
-	if !hasWorkloadIdentity {
-		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationWorkloadIdentityPoolID)
-		logger.Info(message)
+	membership, err := GetMembershipFromSecret(ctx, r.Client, logger)
+	if err != nil {
+		logger.Error(err, "failed to get membership from secret")
 		return reconcile.Result{}, err
 	}
 
-	if !hasIdentityProvider {
-		message := fmt.Sprintf("Skipping ServiceAccount missing %q annotation", webhook.AnnotationGCPIdentityProvider)
-		logger.Info(message)
+	identityProvider := membership.Authority.IdentityProvider
+	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
+
+	if isEmpty(identityProvider) {
+		err = fmt.Errorf("membership does not have an identity provider %+v", membership)
+		logger.Error(err, "membership not configured properly")
+		return reconcile.Result{}, err
+	}
+
+	if isEmpty(workloadIdentityPool) {
+		err = fmt.Errorf("membership does not have a workload identity pool %+v", membership)
+		logger.Error(err, "membership not configured properly")
 		return reconcile.Result{}, err
 	}
 
@@ -94,8 +107,8 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	     }
 	   }`,
 		workloadIdentityPool, identityProvider, gcpServiceAccount,
-		webhook.VolumeMountWorkloadIdentityPath,
-		webhook.ServiceAccountTokenPath)
+		VolumeMountWorkloadIdentityPath,
+		ServiceAccountTokenPath)
 
 	newSecret, err := r.generateNewSecret(serviceAccount, secretName, data)
 	if err != nil {
@@ -111,6 +124,26 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	err = r.createSecret(ctx, newSecret)
 
 	return ctrl.Result{}, err
+}
+
+func GetMembershipFromSecret(ctx context.Context, c client.Client, logger logr.Logger) (*gkehubpb.Membership, error) {
+	secret := &corev1.Secret{}
+
+	err := c.Get(ctx, client.ObjectKey{
+		Namespace: DefaultMembershipSecretNamespace,
+		Name:      MembershipSecretName,
+	}, secret)
+	if err != nil {
+		logger.Error(err, "failed to get membership secret")
+		return nil, err
+	}
+
+	data := secret.Data[SecretKeyGoogleApplicationCredentials]
+
+	membership := &gkehubpb.Membership{}
+	err = json.Unmarshal(data, membership)
+
+	return membership, err
 }
 
 func (r *ServiceAccountReconciler) updateSecret(ctx context.Context, secret *corev1.Secret) error {
@@ -144,7 +177,7 @@ func (r *ServiceAccountReconciler) generateNewSecret(serviceAccount *corev1.Serv
 			},
 		},
 		StringData: map[string]string{
-			webhook.SecretKeyGoogleApplicationCredentials: data,
+			SecretKeyGoogleApplicationCredentials: data,
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
 	}
@@ -156,6 +189,10 @@ func (r *ServiceAccountReconciler) generateNewSecret(serviceAccount *corev1.Serv
 	}
 
 	return secret, nil
+}
+
+func isEmpty(str string) bool {
+	return len(strings.TrimSpace(str)) < 1
 }
 
 // SetupWithManager sets up the controller with the Manager.
