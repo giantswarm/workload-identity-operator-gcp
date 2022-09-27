@@ -113,7 +113,7 @@ export GOOGLE_SA_NAME="<insert-gcp-service-account-name-here>"
 gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAME"
 ```
 
-##### 3 Ensure that your GCP service account has the roles that you need. 
+##### 3 Give the Kubernetes Service Account permission to impersonate the GCP Service Account
 
 ```
   export GOOGLE_SA_ID="$GOOGLE_SA_NAME@$GCP_PROJECT_NAME.iam.gserviceaccount.com"
