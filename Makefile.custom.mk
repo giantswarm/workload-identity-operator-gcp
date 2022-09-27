@@ -167,6 +167,7 @@ deploy: manifests render ## Deploy controller to the K8s cluster specified in ~/
 		--namespace $(NAMESPACE) \
 		--set image.tag=$(IMAGE_TAG) \
 		--set gcp.credentials=$(B64_GOOGLE_APPLICATION_CREDENTIALS) \
+		--set enableClusterReconciler=true \
 		--wait \
 		workload-identity-operator-gcp helm/rendered/workload-identity-operator-gcp
 

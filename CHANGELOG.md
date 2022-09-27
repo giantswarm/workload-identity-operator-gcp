@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Flag to enable cluster reconciler. Disabled by default. It should only be enabled when running on a Management Cluster.
+
 ## [0.4.1] - 2022-09-23
 
 ### Changed
