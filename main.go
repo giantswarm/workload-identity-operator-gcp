@@ -133,7 +133,7 @@ func main() {
 	}
 }
 
-func wireGCPClusterReconciler(mgr manager.Manager) func() error {
+func wireGCPClusterReconciler(mgr manager.Manager) func() {
 	ctx := context.Background()
 	gkehubClient, err := gkehub.NewGkeHubMembershipRESTClient(ctx)
 	if err != nil {
@@ -159,7 +159,12 @@ func wireGCPClusterReconciler(mgr manager.Manager) func() error {
 		os.Exit(1)
 	}
 
-	return gkehubClient.Close
+	return func() {
+		err := gkehubClient.Close()
+		if err != nil {
+			setupLog.Error(err, "failed to close GKEHub Client connection")
+		}
+	}
 }
 
 func wireServiceAccountReconciler(mgr manager.Manager) {
