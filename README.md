@@ -126,7 +126,9 @@ gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAM
     --member="serviceAccount:$WORKLOAD_ID_POOL[$KUBE_NAMESPACE/$KUBE_SA_NAME]"
 ```
 
-##### 4 Add computer viewer permissions
+##### 4 Ensure that your GCP service account has the roles that the workload will need.
+
+Example: Add the `compute.viewer` role:
 ```
   # Add necessary permissions to the GCP Service Account
   gcloud projects add-iam-policy-binding "$GCP_PROJECT_NAME" \
