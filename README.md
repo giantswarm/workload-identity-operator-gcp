@@ -152,6 +152,8 @@ This includes the following:
   * The Identity Provider
   * The OIDC JWKS of the cluster API server
 
+**NOTE:** The GCP Cluster reconciler has to be enabled with the `enableClusterReconciler=true` helm value on Management Clusters.
+
 ### The Service Account Reconciler
 
 The reconciler tracks `ServiceAccounts` annotated with `giantswarm.io/gcp-service-account`, `giantswarm.io/gcp-workload-identity` & `giantswarm.io/gcp-identity-provider` which should contain the GCP service account ID (in the format `<gcp-service-account-name>@<gcp-project-name>.iam.gserviceaccount.com`).

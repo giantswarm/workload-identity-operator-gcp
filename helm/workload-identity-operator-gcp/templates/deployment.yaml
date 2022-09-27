@@ -36,6 +36,8 @@ spec:
           args:
             - "--webhook-port"
             - "{{ .Values.webhookPort }}"
+            - "--enable-cluster-reconciler"
+            - "{{ .Values.enableClusterReconciler }}"
           ports:
             - name: web
               protocol: TCP
