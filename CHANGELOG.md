@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2022-09-27
+
 ### Added
 
 - Flag to enable cluster reconciler. Disabled by default. It should only be enabled when running on a Management Cluster.
@@ -62,7 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2022-06-14
 
-[Unreleased]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/giantswarm/workload-identity-operator-gcp/compare/v0.3.1...v0.3.2
