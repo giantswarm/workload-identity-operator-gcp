@@ -1,0 +1,10 @@
+name: workload-identity-operator-gcp
+version: [[ .Version ]]
+description: "Operator for managing workload identity on GCP clusters"
+appVersion: "[[ .AppVersion ]]"
+home: "https://github.com/giantswarm/workload-identity-operator-gcp"
+apiVersion: v1
+annotations:
+  application.giantswarm.io/team: "phoenix"
+  config.giantswarm.io/version: 1.x.x
+icon: https://s.giantswarm.io/app-icons/gcp/1/light.svg

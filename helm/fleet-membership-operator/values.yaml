@@ -1,0 +1,19 @@
+gcp:
+  credentials: credentials
+enableClusterReconciler: false
+project:
+  branch: "[[ .Branch ]]"
+  commit: "[[ .SHA ]]"
+image:
+  name: "giantswarm/workload-identity-operator-gcp"
+  tag: "[[ .Version ]]"
+registry:
+  domain: quay.io
+
+webhookPort: 9443
+
+pod:
+  user:
+    id: 1000
+  group:
+    id: 1000
