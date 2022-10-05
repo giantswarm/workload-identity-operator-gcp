@@ -29,11 +29,10 @@ var _ = Describe("Credentials", func() {
 		ctx                context.Context
 		credentialsWebhook *webhook.CredentialsInjector
 
-		pod            corev1.Pod
-		serviceAccount *corev1.ServiceAccount
-		gcpCluster     *infra.GCPCluster
-		request        admission.Request
-		response       admission.Response
+		pod        corev1.Pod
+		gcpCluster *infra.GCPCluster
+		request    admission.Request
+		response   admission.Response
 
 		gcpProject           = "testing-1234"
 		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
@@ -45,17 +44,6 @@ var _ = Describe("Credentials", func() {
 		decoder, err := admission.NewDecoder(runtime.NewScheme())
 		Expect(err).NotTo(HaveOccurred())
 		credentialsWebhook = webhook.NewCredentialsInjector(k8sClient, decoder)
-
-		serviceAccount = &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "the-service-account",
-				Namespace: namespace,
-				Annotations: map[string]string{
-					controllers.AnnotationGCPServiceAccount: "service-account@email",
-				},
-			},
-		}
-		Expect(k8sClient.Create(ctx, serviceAccount)).To(Succeed())
 
 		pod = corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -243,19 +231,6 @@ var _ = Describe("Credentials", func() {
 		})
 
 		It("denies the request", func() {
-			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
-			Expect(response.Result).NotTo(BeNil())
-			Expect(response.Result.Code).To(Equal(int32(http.StatusForbidden)))
-		})
-	})
-
-	When("the service account doesn't exist", func() {
-		BeforeEach(func() {
-			pod.Spec.ServiceAccountName = "does-not-exist"
-			request.Object = encodeObject(pod)
-		})
-
-		It("returns a 400 Bad Request", func() {
 			Expect(response.AdmissionResponse.Allowed).To(BeFalse())
 			Expect(response.Result).NotTo(BeNil())
 			Expect(response.Result.Code).To(Equal(int32(http.StatusForbidden)))

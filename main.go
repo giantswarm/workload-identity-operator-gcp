@@ -24,6 +24,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
+	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
@@ -36,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
@@ -58,6 +60,7 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var enableClusterReconciler bool
 	var probeAddr string
 	var webhookPort int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -66,9 +69,12 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "The port for the webhook")
+	flag.BoolVar(&enableClusterReconciler, "enable-cluster-reconciler", false,
+		"Enable the GCPCluster reconciler. This should be enabled only on Management Clusters.")
 
 	opts := zap.Options{
 		Development: true,
+		TimeEncoder: zapcore.RFC3339TimeEncoder,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -90,14 +96,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ServiceAccountReconciler{
-		Client: mgr.GetClient(),
-		Logger: ctrl.Log.WithName("service-account-reconciler"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceAccount")
-		os.Exit(1)
-	}
+	wireServiceAccountReconciler(mgr)
+
 	//+kubebuilder:scaffold:builder
 
 	decoder, err := admission.NewDecoder(scheme)
@@ -117,10 +117,24 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+	//+kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+}
+
+func wireServiceAccountReconciler(mgr manager.Manager) {
+	reconciler := &controllers.ServiceAccountReconciler{
+		Client: mgr.GetClient(),
+		Logger: ctrl.Log.WithName("service-account-reconciler"),
+		Scheme: mgr.GetScheme(),
+	}
+
+	if err := reconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceAccount")
 		os.Exit(1)
 	}
 }
