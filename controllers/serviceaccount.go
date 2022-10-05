@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	gkehubpb "cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
 	"github.com/go-logr/logr"
-	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +25,9 @@ const (
 	AnnotationGCPServiceAccount = "giantswarm.io/gcp-service-account"
 
 	SecretManagedBy = "workload-identity-operator-gcp" //#nosec G101
+
+	MembershipSecretName             = "fleet-membership-operator-gcp-membership"
+	DefaultMembershipSecretNamespace = "giantswarm"
 
 	SecretNameSuffix                      = "google-application-credentials" //#nosec G101
 	SecretKeyGoogleApplicationCredentials = "config"

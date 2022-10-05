@@ -28,9 +28,6 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
-          env:
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: /home/.gcp/credentials
           command:
             - /manager
           args:
@@ -51,13 +48,7 @@ spec:
             - name: cert
               mountPath: "/etc/webhook/certs"
               readOnly: true
-            - name: credentials
-              mountPath: "home/.gcp"
-              readOnly: true
       volumes:
         - name: cert
           secret:
             secretName: {{ include "resource.default.name" . }}
-        - name: credentials
-          secret:
-            secretName: {{ include "resource.default.name" . }}-gcp-credentials

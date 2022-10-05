@@ -2,7 +2,6 @@ package acceptance_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,8 +22,6 @@ import (
 
 var (
 	k8sClient client.Client
-
-	workloadClient client.Client
 
 	gcpProject   string
 	namespace    string
@@ -51,17 +47,6 @@ var _ = BeforeSuite(func() {
 
 	k8sClient, err = client.New(config, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
-
-	home := tests.GetEnvOrSkip("HOME")
-	workloadClusterConfigPath := fmt.Sprintf("%s/.kube/workload-cluster.yaml", home)
-
-	wcfg := clientcmd.GetConfigFromFileOrDie(workloadClusterConfigPath)
-	wcdcfg := clientcmd.NewDefaultClientConfig(*wcfg, nil)
-	wccfg, err := wcdcfg.ClientConfig()
-	Expect(err).NotTo(HaveOccurred())
-
-	workloadClient, err = client.New(wccfg, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = BeforeEach(func() {
@@ -69,9 +54,9 @@ var _ = BeforeEach(func() {
 	namespaceObj = &corev1.Namespace{}
 	namespaceObj.Name = namespace
 
-	Expect(workloadClient.Create(context.Background(), namespaceObj)).To(Succeed())
+	Expect(k8sClient.Create(context.Background(), namespaceObj)).To(Succeed())
 })
 
 var _ = AfterEach(func() {
-	Expect(workloadClient.Delete(context.Background(), namespaceObj)).To(Succeed())
+	Expect(k8sClient.Delete(context.Background(), namespaceObj)).To(Succeed())
 })

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +20,6 @@ import (
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
 	serviceaccount "github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -34,7 +35,6 @@ var _ = Describe("Service Account Reconcilation", func() {
 		serviceAccountName   string
 		gcpServiceAccount    string
 		secretName           string
-		membershipId         string
 		workloadIdentityPool string
 		identityProvider     string
 
@@ -83,9 +83,8 @@ var _ = Describe("Service Account Reconcilation", func() {
 			}
 			createMembershipSecret(gcpCluster)
 
-			membershipId = gke.GenerateMembershipId(*gcpCluster)
-			workloadIdentityPool = gke.GenerateWorkpoolId(*gcpCluster)
-			identityProvider = gke.GenerateIdentityProvider(*gcpCluster, membershipId)
+			workloadIdentityPool = "test.svc.id.goog"
+			identityProvider = "https://test.default.local"
 
 			reconciler = &controllers.ServiceAccountReconciler{
 				Client: k8sClient,
@@ -204,7 +203,7 @@ var _ = Describe("Service Account Reconcilation", func() {
 func createMembershipSecret(gcpCluster *capg.GCPCluster) {
 	oidcJwks := []byte{}
 
-	membership := gke.GenerateMembership(*gcpCluster, oidcJwks)
+	membership := GenerateMembership(oidcJwks)
 	membershipJson, err := json.Marshal(membership)
 
 	Expect(err).NotTo(HaveOccurred())
@@ -214,8 +213,8 @@ func createMembershipSecret(gcpCluster *capg.GCPCluster) {
 			Name:      controllers.MembershipSecretName,
 			Namespace: controllers.DefaultMembershipSecretNamespace,
 			Annotations: map[string]string{
-				controllers.AnnoationMembershipSecretCreatedBy: gcpCluster.Name,
-				controllers.AnnotationSecretManagedBy:          controllers.SecretManagedBy,
+				"app.kubernetes.io/created-by":        gcpCluster.Name,
+				controllers.AnnotationSecretManagedBy: controllers.SecretManagedBy,
 			},
 		},
 		StringData: map[string]string{
@@ -224,4 +223,26 @@ func createMembershipSecret(gcpCluster *capg.GCPCluster) {
 	}
 	err = k8sClient.Create(context.Background(), membershipSecret)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func GenerateMembership(oidcJwks []byte) *gkehubpb.Membership {
+	externalId := uuid.New().String()
+
+	name := "testing-membership"
+	workloadIdPool := "test.svc.id.goog"
+	identityProvider := "https://test.default.local"
+	issuer := "https://kubernetes.default.svc.cluster.local"
+
+	membership := &gkehubpb.Membership{
+		Name: name,
+		Authority: &gkehubpb.Authority{
+			Issuer:               issuer,
+			WorkloadIdentityPool: workloadIdPool,
+			IdentityProvider:     identityProvider,
+			OidcJwks:             oidcJwks,
+		},
+		ExternalId: externalId,
+	}
+
+	return membership
 }

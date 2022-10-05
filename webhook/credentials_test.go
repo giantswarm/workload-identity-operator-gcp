@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gomodules.xyz/jsonpatch/v2"
@@ -19,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
-	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -305,7 +306,7 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 	if k8serrors.IsNotFound(err) {
 		oidcJwks := []byte{}
 
-		membership := gke.GenerateMembership(*gcpCluster, oidcJwks)
+		membership := GenerateMembership(oidcJwks)
 		membershipJson, err := json.Marshal(membership)
 
 		Expect(err).To(BeNil())
@@ -315,8 +316,8 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 				Name:      controllers.MembershipSecretName,
 				Namespace: controllers.DefaultMembershipSecretNamespace,
 				Annotations: map[string]string{
-					controllers.AnnoationMembershipSecretCreatedBy: gcpCluster.Name,
-					controllers.AnnotationSecretManagedBy:          controllers.SecretManagedBy,
+					"app.kubernetes.io/created-by":        gcpCluster.Name,
+					controllers.AnnotationSecretManagedBy: controllers.SecretManagedBy,
 				},
 			},
 			StringData: map[string]string{
@@ -329,4 +330,27 @@ func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
 	}
 
 	return err
+}
+
+func GenerateMembership(oidcJwks []byte) *gkehubpb.Membership {
+	externalId := uuid.New().String()
+
+	name := "testing-membership"
+	identityProvider := "https://test.default.local"
+	issuer := "https://kubernetes.default.svc.cluster.local"
+	gcpProject := "testing-1234"
+	workloadIdentityPool := fmt.Sprintf("%s.svc.id.goog", gcpProject)
+
+	membership := &gkehubpb.Membership{
+		Name: name,
+		Authority: &gkehubpb.Authority{
+			Issuer:               issuer,
+			WorkloadIdentityPool: workloadIdentityPool,
+			IdentityProvider:     identityProvider,
+			OidcJwks:             oidcJwks,
+		},
+		ExternalId: externalId,
+	}
+
+	return membership
 }
