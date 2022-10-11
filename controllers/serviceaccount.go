@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/giantswarm/fleet-membership-operator-gcp/types"
 	"github.com/go-logr/logr"
-	gkehubpb "google.golang.org/genproto/googleapis/cloud/gkehub/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -25,6 +25,9 @@ const (
 	AnnotationGCPServiceAccount = "giantswarm.io/gcp-service-account"
 
 	SecretManagedBy = "workload-identity-operator-gcp" //#nosec G101
+
+	MembershipSecretName             = "fleet-membership-operator-gcp-membership"
+	DefaultMembershipSecretNamespace = "giantswarm"
 
 	SecretNameSuffix                      = "google-application-credentials" //#nosec G101
 	SecretKeyGoogleApplicationCredentials = "config"
@@ -68,8 +71,8 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
-	identityProvider := membership.Authority.IdentityProvider
-	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
+	identityProvider := membership.IdentityProvider
+	workloadIdentityPool := membership.WorkloadIdentityPool
 
 	if isEmpty(identityProvider) {
 		err = fmt.Errorf("membership does not have an identity provider %+v", membership)
@@ -86,7 +89,7 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	secretName := fmt.Sprintf("%s-%s", serviceAccount.Name, SecretNameSuffix)
 	secret := &corev1.Secret{}
 
-	err = r.Get(ctx, types.NamespacedName{
+	err = r.Get(ctx, k8stypes.NamespacedName{
 		Name:      secretName,
 		Namespace: req.Namespace,
 	}, secret)
@@ -126,7 +129,7 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, err
 }
 
-func GetMembershipFromSecret(ctx context.Context, c client.Client, logger logr.Logger) (*gkehubpb.Membership, error) {
+func GetMembershipFromSecret(ctx context.Context, c client.Client, logger logr.Logger) (types.MembershipData, error) {
 	secret := &corev1.Secret{}
 
 	err := c.Get(ctx, client.ObjectKey{
@@ -135,13 +138,13 @@ func GetMembershipFromSecret(ctx context.Context, c client.Client, logger logr.L
 	}, secret)
 	if err != nil {
 		logger.Error(err, "failed to get membership secret")
-		return nil, err
+		return types.MembershipData{}, err
 	}
 
 	data := secret.Data[SecretKeyGoogleApplicationCredentials]
 
-	membership := &gkehubpb.Membership{}
-	err = json.Unmarshal(data, membership)
+	membership := types.MembershipData{}
+	err = json.Unmarshal(data, &membership)
 
 	return membership, err
 }

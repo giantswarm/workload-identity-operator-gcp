@@ -11,78 +11,15 @@ The application can use this access token to use whatever resources it needs on 
 > Pods that use the configured Kubernetes service account automatically authenticate as the IAM service account when accessing Google Cloud APIs.
 > Using Workload Identity allows you to assign distinct, fine-grained identities and authorization for each application in your cluster.
 
-## Concepts
-
-This operator is set up to work on a multi-cluster setup. What is a multi-cluster setup?
-
-> Multi-cluster Kubernetes is a Kubernetes deployment method that consists of two or more clusters.
-
-It operates on the notion of management and workload clusters. Where a management cluster manages the lifecycle of a workload cluster and workload clusters have their lifecycle managed by management clusters.
-
 
 ## Prerequisites
 1. Install [gcloud](https://cloud.google.com/sdk/docs/install)
 2. A cluster on GCP. [Creating a cluster ](https://github.com/giantswarm/capo-mc-bootstrap/)
 3. [Enabling the GKE API](https://cloud.google.com/endpoints/docs/openapi/enable-api) on your GCP Project. 
+4. A registered membership on GCP. See [fleet-membership-operator-gcp](https://github.com/giantswarm/fleet-membership-operator-gcp)
 
 
 ## Usage
-
-### Steps to take on a management cluster
-These are steps that are meant to be executed on a management cluster before the configuration steps are done.
-
-Note, when you enable Workload Identity on a cluster, GKE automatically creates a **fixed** workload identity pool for the cluster's **Google Cloud Project**.
-A workload identity pool allows IAM to understand and trust Kubernetes service account credentials.
-The workload identity pool has the following format:
-```
-  PROJECT_ID.svc.id.goog
-```
-
-##### 1. Register your cluster
-```
-export CLUSTER_NAME="<insert-cluster-name-here>" 
-export MEMBERSHIP_NAME="$CLUSTER_NAME-workload-identity"
-export GCP_PROJECT_NAME="<insert-project-name-here>"
-export KUBECONFIG_CONTEXT="<insert-context-here>"
-export KUBECONFIG_PATH="~/.kube/config"
-```
-```
-gcloud container hub memberships register "$MEMBERSHIP_NAME" \
-    --project "$GCP_PROJECT_NAME" \
-    --context="$KUBECONFIG_CONTEXT" \
-    --kubeconfig="$KUBECONFIG_PATH" \
-    --enable-workload-identity \
-    --has-private-issuer
-``` 
-
-##### 2. [Create a GCP service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#creating) or 
-
-```
-export GOOGLE_SA_NAME="<insert-gcp-service-account-name-here>"
-gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAME"
-```
-
-##### 3. Ensure that your GCP service account has the roles needed. 
-
-```
-  export GOOGLE_SA_ID="$GOOGLE_SA_NAME@$GCP_PROJECT_NAME.iam.gserviceaccount.com"
-
-  # this policy binding associates the GCP service account with a Kubernetes service account
-  gcloud iam service-accounts add-iam-policy-binding \
-    --project "$GCP_PROJECT_NAME" \
-    "$GOOGLE_SA_ID" \
-    --role=roles/container.admin \
-    --role=roles/gkehub.admin \
-    --member=user:my-user@example.com
-```
-
-##### 4. Add the credentials needed for deloyment
-
-You will need to create a `json` key for the gcp service account. Once downloaded save its contents as a base64 encoded value.
-
-```
-export B64_GOOGLE_APPLICATION_CREDENTIALS=$( cat /path/to/gcp-credentials.json | base64 | tr -d '\n' )
-```
 
 ### Steps on workload clusters
 These are steps that are meant to be taken on the workload cluster before the configuration steps
@@ -141,18 +78,6 @@ Example: Add the `compute.viewer` role:
   kubectl annotate sa $KUBE_SA_NAME \ 
   giantswarm.io/gcp-service-account=$GOOGLE_SA_ID \
   ```
-
-### The GCP Cluster Reconciler
-The reconciler tracks `GCPClusters` that are created on a cluster. It is assumed that any cluster that this resource is created on, is a management cluster.
-It will check for the annotation `giantswarm.io/workload-identity-enabled: "true"` and whether the cluster has a node ready.
-It'll then create a `Secret` called `workload-identity-operator-gcp-membership` in the **giantswarm** `namespace` which contains the information needed by the service account reconciler.
-This includes the following:
-  * The Authority Issuer
-  * The Workload Identity Pool ID
-  * The Identity Provider
-  * The OIDC JWKS of the cluster API server
-
-**NOTE:** The GCP Cluster reconciler has to be enabled with the `enableClusterReconciler=true` helm value on Management Clusters.
 
 ### The Service Account Reconciler
 

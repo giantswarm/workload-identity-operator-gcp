@@ -17,18 +17,16 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	gkehub "cloud.google.com/go/gkehub/apiv1beta1"
+
 	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	gke "github.com/giantswarm/workload-identity-operator-gcp/pkg/gke/membership"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,7 +60,6 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	var enableClusterReconciler bool
 	var probeAddr string
 	var webhookPort int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -71,8 +68,6 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "The port for the webhook")
-	flag.BoolVar(&enableClusterReconciler, "enable-cluster-reconciler", false,
-		"Enable the GCPCluster reconciler. This should be enabled only on Management Clusters.")
 
 	opts := zap.Options{
 		Development: true,
@@ -100,12 +95,6 @@ func main() {
 
 	wireServiceAccountReconciler(mgr)
 
-	if enableClusterReconciler {
-		setupLog.Info("setting up cluster reconciler")
-
-		cleanupFunc := wireGCPClusterReconciler(mgr)
-		defer cleanupFunc()
-	}
 	//+kubebuilder:scaffold:builder
 
 	decoder, err := admission.NewDecoder(scheme)
@@ -125,45 +114,12 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+	//+kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
-	}
-}
-
-func wireGCPClusterReconciler(mgr manager.Manager) func() {
-	ctx := context.Background()
-	gkehubClient, err := gkehub.NewGkeHubMembershipRESTClient(ctx)
-	if err != nil {
-		setupLog.Error(err, "failed to create gke hub membership client")
-		os.Exit(1)
-	}
-
-	gkeClient := gke.NewClient(gkehubClient)
-	gkeMembershipReconciler := gke.NewGKEClusterReconciler(
-		gkeClient,
-		ctrl.Log.WithName("gke-membership-reconciler"),
-	)
-
-	reconciler := &controllers.GCPClusterReconciler{
-		Client:                    mgr.GetClient(),
-		Logger:                    ctrl.Log.WithName("gcp-cluster-reconciler"),
-		MembershipSecretNamespace: controllers.DefaultMembershipSecretNamespace,
-		GKEMembershipReconciler:   gkeMembershipReconciler,
-	}
-
-	if err = reconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GCPCluster")
-		os.Exit(1)
-	}
-
-	return func() {
-		err := gkehubClient.Close()
-		if err != nil {
-			setupLog.Error(err, "failed to close GKEHub Client connection")
-		}
 	}
 }
 
