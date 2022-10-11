@@ -6,21 +6,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	infra "sigs.k8s.io/cluster-api-provider-gcp/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -29,13 +25,13 @@ var _ = Describe("Credentials", func() {
 		ctx                context.Context
 		credentialsWebhook *webhook.CredentialsInjector
 
-		pod        corev1.Pod
-		gcpCluster *infra.GCPCluster
-		request    admission.Request
-		response   admission.Response
+		pod      corev1.Pod
+		request  admission.Request
+		response admission.Response
 
 		gcpProject           = "testing-1234"
 		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
+		identityProvider     = "https://identity-providers.io/you"
 	)
 
 	BeforeEach(func() {
@@ -44,6 +40,7 @@ var _ = Describe("Credentials", func() {
 		decoder, err := admission.NewDecoder(runtime.NewScheme())
 		Expect(err).NotTo(HaveOccurred())
 		credentialsWebhook = webhook.NewCredentialsInjector(k8sClient, decoder)
+		tests.EnsureMembershipSecretExists(k8sClient, workloadIdentityPool, identityProvider)
 
 		pod = corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -74,17 +71,6 @@ var _ = Describe("Credentials", func() {
 			},
 		}
 
-		clusterName := "krillin"
-		gcpCluster = &infra.GCPCluster{
-			TypeMeta: metav1.TypeMeta{},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: clusterName,
-			},
-			Spec: infra.GCPClusterSpec{
-				Project: gcpProject,
-			},
-		}
-
 		request = admission.Request{
 			AdmissionRequest: admissionv1.AdmissionRequest{
 				Object:    encodeObject(pod),
@@ -95,7 +81,6 @@ var _ = Describe("Credentials", func() {
 	})
 
 	JustBeforeEach(func() {
-		Expect(ensureMembershipSecretExists(gcpCluster)).To(Succeed())
 		response = credentialsWebhook.Handle(ctx, request)
 	})
 
@@ -267,65 +252,4 @@ func encodeObject(obj interface{}) runtime.RawExtension {
 	Expect(err).NotTo(HaveOccurred())
 
 	return runtime.RawExtension{Raw: encodedObj}
-}
-
-func ensureMembershipSecretExists(gcpCluster *infra.GCPCluster) error {
-	membershipSecret := &corev1.Secret{}
-	ctx := context.Background()
-
-	err := k8sClient.Get(ctx, client.ObjectKey{
-		Name:      controllers.MembershipSecretName,
-		Namespace: controllers.DefaultMembershipSecretNamespace,
-	}, membershipSecret)
-
-	if k8serrors.IsNotFound(err) {
-		oidcJwks := []byte{}
-
-		membership := GenerateMembership(oidcJwks)
-		membershipJson, err := json.Marshal(membership)
-
-		Expect(err).To(BeNil())
-
-		membershipSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      controllers.MembershipSecretName,
-				Namespace: controllers.DefaultMembershipSecretNamespace,
-				Annotations: map[string]string{
-					"app.kubernetes.io/created-by":        gcpCluster.Name,
-					controllers.AnnotationSecretManagedBy: controllers.SecretManagedBy,
-				},
-			},
-			StringData: map[string]string{
-				controllers.SecretKeyGoogleApplicationCredentials: string(membershipJson),
-			},
-		}
-		err = k8sClient.Create(context.Background(), membershipSecret)
-
-		return err
-	}
-
-	return err
-}
-
-func GenerateMembership(oidcJwks []byte) *gkehubpb.Membership {
-	externalId := uuid.New().String()
-
-	name := "testing-membership"
-	identityProvider := "https://test.default.local"
-	issuer := "https://kubernetes.default.svc.cluster.local"
-	gcpProject := "testing-1234"
-	workloadIdentityPool := fmt.Sprintf("%s.svc.id.goog", gcpProject)
-
-	membership := &gkehubpb.Membership{
-		Name: name,
-		Authority: &gkehubpb.Authority{
-			Issuer:               issuer,
-			WorkloadIdentityPool: workloadIdentityPool,
-			IdentityProvider:     identityProvider,
-			OidcJwks:             oidcJwks,
-		},
-		ExternalId: externalId,
-	}
-
-	return membership
 }

@@ -20,9 +20,6 @@ import (
 const (
 	EnvKeyGoogleApplicationCredentials = "GOOGLE_APPLICATION_CREDENTIALS" //#nosec G101
 
-	AnnotationWorkloadIdentityPoolID = "giantswarm.io/gcp-workload-identity-pool-id"
-	AnnotationGCPIdentityProvider    = "giantswarm.io/gcp-identity-provider"
-
 	LabelWorkloadIdentity = "giantswarm.io/gcp-workload-identity"
 
 	VolumeWorkloadIdentityName        = "workload-identity-credentials"
@@ -76,7 +73,7 @@ func (w *CredentialsInjector) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	workloadIdentityPool := membership.Authority.WorkloadIdentityPool
+	workloadIdentityPool := membership.WorkloadIdentityPool
 
 	mutatedPod := pod.DeepCopy()
 	injectVolume(mutatedPod, workloadIdentityPool, secretName)

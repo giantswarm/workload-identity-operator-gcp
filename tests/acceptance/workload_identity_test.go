@@ -2,21 +2,18 @@ package acceptance_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/gkehub/apiv1beta1/gkehubpb"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/workload-identity-operator-gcp/controllers"
+	"github.com/giantswarm/workload-identity-operator-gcp/tests"
 	"github.com/giantswarm/workload-identity-operator-gcp/webhook"
 )
 
@@ -43,18 +40,17 @@ var _ = Describe("Workload Identity", func() {
 
 		gcpServiceAccount = "service-account@email"
 		workloadIdentityPool = fmt.Sprintf("%s.svc.id.goog", gcpProject)
-
 		membershipId = "testing-123"
 		identityProvider = fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
+
+		tests.EnsureMembershipSecretExists(k8sClient, workloadIdentityPool, identityProvider)
 
 		serviceAccount = &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "the-service-account",
 				Namespace: namespace,
 				Annotations: map[string]string{
-					controllers.AnnotationGCPServiceAccount:  gcpServiceAccount,
-					webhook.AnnotationWorkloadIdentityPoolID: workloadIdentityPool,
-					webhook.AnnotationGCPIdentityProvider:    identityProvider,
+					controllers.AnnotationGCPServiceAccount: gcpServiceAccount,
 				},
 			},
 		}
@@ -89,8 +85,6 @@ var _ = Describe("Workload Identity", func() {
 				},
 			},
 		}
-
-		Expect(createMembershipSecret()).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
@@ -162,58 +156,3 @@ var _ = Describe("Workload Identity", func() {
 		Consistently(getPodStatus, "5s").Should(BeTrue(), "pod container errored")
 	})
 })
-
-func createMembershipSecret() error {
-	oidcJwks := []byte{}
-
-	membership := GenerateMembership(oidcJwks)
-	membershipJson, err := json.Marshal(membership)
-	if err != nil {
-		return err
-	}
-
-	membershipSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      controllers.MembershipSecretName,
-			Namespace: controllers.DefaultMembershipSecretNamespace,
-			Annotations: map[string]string{
-				"app.kubernetes.io/created-by":        "a-cluster",
-				controllers.AnnotationSecretManagedBy: controllers.SecretManagedBy,
-			},
-		},
-		StringData: map[string]string{
-			controllers.SecretKeyGoogleApplicationCredentials: string(membershipJson),
-		},
-	}
-
-	err = k8sClient.Create(context.Background(), membershipSecret)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		fmt.Println(err)
-		return err
-	}
-
-	return nil
-}
-
-func GenerateMembership(oidcJwks []byte) *gkehubpb.Membership {
-	externalId := uuid.New().String()
-
-	name := "testing-membership"
-	workloadIdPool := "giantswarm-tests.svc.id.goog"
-	membershipId := "testing-123"
-	identityProvider := fmt.Sprintf("https://gkehub.googleapis.com/projects/%s/locations/global/memberships/%s", gcpProject, membershipId)
-	issuer := "https://kubernetes.default.svc.cluster.local"
-
-	membership := &gkehubpb.Membership{
-		Name: name,
-		Authority: &gkehubpb.Authority{
-			Issuer:               issuer,
-			WorkloadIdentityPool: workloadIdPool,
-			IdentityProvider:     identityProvider,
-			OidcJwks:             oidcJwks,
-		},
-		ExternalId: externalId,
-	}
-
-	return membership
-}
