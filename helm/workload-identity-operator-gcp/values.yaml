@@ -1,6 +1,3 @@
-gcp:
-  credentials: credentials
-enableClusterReconciler: false
 project:
   branch: "[[ .Branch ]]"
   commit: "[[ .SHA ]]"

@@ -3,9 +3,7 @@ package controllers_test
 import (
 	"context"
 	"fmt"
-	"go/build"
 	"net/url"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
@@ -57,14 +55,7 @@ var _ = BeforeSuite(func() {
 	tests.GetEnvOrSkip("KUBEBUILDER_ASSETS")
 
 	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.1.5", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api@v1.1.5", "controlplane", "kubeadm", "config", "crd", "bases"),
-			filepath.Join(build.Default.GOPATH, "pkg", "mod", "sigs.k8s.io", "cluster-api-provider-gcp@v1.1.1", "config", "crd", "bases"),
-		},
-		ErrorIfCRDPathMissing: true,
-	}
+	testEnv = &envtest.Environment{}
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(capg.AddToScheme(scheme))

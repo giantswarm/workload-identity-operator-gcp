@@ -60,7 +60,6 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	var enableClusterReconciler bool
 	var probeAddr string
 	var webhookPort int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -69,8 +68,6 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "The port for the webhook")
-	flag.BoolVar(&enableClusterReconciler, "enable-cluster-reconciler", false,
-		"Enable the GCPCluster reconciler. This should be enabled only on Management Clusters.")
 
 	opts := zap.Options{
 		Development: true,
