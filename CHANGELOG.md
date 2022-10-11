@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2022-10-11
 
+### Removed
+
+- GCP Cluster Reconciler. That responsibility has been moved to fleet-membership-operator-gcp
+
 ## [0.4.3] - 2022-10-03
 
 ### Fixed
