@@ -25,7 +25,7 @@ The application can use this access token to use whatever resources it needs on 
 These are steps that are meant to be taken on the workload cluster before the configuration steps
 
 #### 1. Create a workload cluster with the following annotation
-```
+```yaml
 giantswarm.io/workload-identity-enabled: "true"
 ```
 💡 It expects to find the GCP project id in the spec of the workload cluster
@@ -35,7 +35,7 @@ giantswarm.io/workload-identity-enabled: "true"
 
 ##### 1 Create a kubernetes service account
 
-```
+```bash
 export KUBE_SA_NAME="<inset-sa-name-here>"
 export KUBE_NAMESPACE="<insert-namespace-here>"
 
@@ -45,14 +45,14 @@ kubectl create serviceaccount $KUBE_SA_NAME \
 
 ##### 2 [Create a GCP service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#creating) or 
 
-```
+```bash
 export GOOGLE_SA_NAME="<insert-gcp-service-account-name-here>"
 gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAME"
 ```
 
 ##### 3 Give the Kubernetes Service Account permission to impersonate the GCP Service Account
 
-```
+```bash
   export GOOGLE_SA_ID="$GOOGLE_SA_NAME@$GCP_PROJECT_NAME.iam.gserviceaccount.com"
 
   # this policy binding associates the GCP service account with a Kubernetes service account
@@ -66,7 +66,7 @@ gcloud iam service-accounts create "$GOOGLE_SA_NAME" --project="$GCP_PROJECT_NAM
 ##### 4 Ensure that your GCP service account has the roles that the workload will need.
 
 Example: Add the `compute.viewer` role:
-```
+```bash
   # Add necessary permissions to the GCP Service Account
   gcloud projects add-iam-policy-binding "$GCP_PROJECT_NAME" \
     --role=roles/compute.viewer \
@@ -74,7 +74,7 @@ Example: Add the `compute.viewer` role:
 ```
 
 ##### 5 Annotate kubernetes service account
-  ```
+  ```bash
   kubectl annotate sa $KUBE_SA_NAME \ 
   giantswarm.io/gcp-service-account=$GOOGLE_SA_ID \
   ```
